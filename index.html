@@ -1,0 +1,2162 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NutriCalc Ped - Pediatric Clinical & Infusion Manager</title>
+    
+    <!-- PWA META TAGS FOR INSTALLABILITY -->
+    <meta name="theme-color" content="#0ea5e9">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="NutriCalc Ped">
+
+    <!-- EXTERNAL PWA MANIFEST LINK FOR NETLIFY SERVING -->
+    <link rel="manifest" href="./manifest.json">
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        /* Nasconde eventuali widget/drawer flottanti iniettati dall'hosting */
+        iframe[src*="netlify"], div[id*="netlify-drawer"], [data-netlify-deploy-id], a[href*="netlify.com"][style*="fixed"], div[style*="z-index: 2147483647"] {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+        @media print {
+            body { background: white; color: black; }
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen pb-20 selection:bg-sky-500 selection:text-white">
+
+    <!-- HEADER / NAVIGATION MOBILE-FIRST -->
+    <header class="bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-30 shadow-xs">
+        <div class="max-w-lg mx-auto px-3 py-2 flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <div class="p-1.5 bg-gradient-to-tr from-sky-600 to-cyan-500 text-white rounded-xl shadow-xs">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M15 11h.01M12 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-xs font-extrabold text-slate-900 leading-tight flex items-center gap-1">
+                        NutriCalc <span class="text-sky-600">Ped</span>
+                        <span id="adminBadgeHeader" class="hidden text-[8px] bg-amber-500 text-white px-1.5 py-0.2 rounded-full font-bold uppercase tracking-wider">Admin</span>
+                    </h1>
+                    <p class="text-[9px] text-slate-500 font-medium">Nutrizione Clinica Pediatrica & Neonatale</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-1.5">
+                <button onclick="openInfoModal()" title="Informazioni e Credits" class="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition text-xs font-bold">
+                    ℹ️
+                </button>
+                <button onclick="printReport()" title="Stampa o Salva Report PDF" class="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition text-xs font-bold">
+                    🖨️
+                </button>
+                <div class="flex flex-col items-end gap-0.5 shrink-0">
+                    <div id="ageUsedBadge" class="px-2 py-0.2 bg-indigo-100 text-indigo-800 text-[9px] font-bold rounded-full shadow-2xs whitespace-nowrap leading-tight">
+                        5 anni
+                    </div>
+                    <div id="weightUsedBadge" class="px-2 py-0.2 bg-sky-100 text-sky-800 text-[9px] font-bold rounded-full shadow-2xs whitespace-nowrap leading-tight">
+                        20.0 kg
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN CONTAINER -->
+    <main class="px-2.5 pt-2.5 pb-4 max-w-lg mx-auto space-y-3">
+
+        <!-- TAB 1: CALCOLATORE E SOMMINISTRAZIONE -->
+        <div id="tab-calc" class="tab-content block space-y-3">
+            
+            <!-- SEZIONE PAZIENTE -->
+            <div class="bg-white p-3 rounded-xl shadow-xs border border-slate-200 space-y-2.5">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-1.5">
+                    <h2 class="text-[11px] font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1">
+                        <span>👶</span> Parametri Paziente
+                    </h2>
+                    <span id="patientAgeGroupBadge" class="text-[9px] font-bold text-sky-700 bg-sky-50 border border-sky-200 px-1.5 py-0.5 rounded-md">
+                        Bambino (5 anni)
+                    </span>
+                </div>
+
+                <!-- SESSO & FASCIA ETÀ RAPIDA -->
+                <div class="grid grid-cols-2 gap-2">
+                    <div class="bg-slate-50 p-2 rounded-lg border border-slate-100">
+                        <label class="block text-[9px] font-bold text-slate-600 uppercase mb-1">Sesso</label>
+                        <div class="grid grid-cols-2 gap-1 bg-slate-200/70 p-0.5 rounded-md">
+                            <button id="btnSexM" onclick="setGender('M')" class="py-1 text-[11px] font-bold rounded bg-white text-slate-800 shadow-2xs transition">Maschio</button>
+                            <button id="btnSexF" onclick="setGender('F')" class="py-1 text-[11px] font-bold rounded text-slate-600 hover:text-slate-800 transition">Femmina</button>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-50 p-2 rounded-lg border border-slate-100">
+                        <label class="block text-[9px] font-bold text-slate-600 uppercase mb-1">Profilo Rapido</label>
+                        <div class="grid grid-cols-3 gap-1 bg-slate-200/70 p-0.5 rounded-md">
+                            <button type="button" onclick="applyPresetPatient('preterm')" class="py-1 text-[9px] font-bold rounded bg-white/80 hover:bg-white text-slate-700 transition">Preterm</button>
+                            <button type="button" onclick="applyPresetPatient('neonate')" class="py-1 text-[9px] font-bold rounded bg-white/80 hover:bg-white text-slate-700 transition">Neonato</button>
+                            <button type="button" onclick="applyPresetPatient('child')" class="py-1 text-[9px] font-bold rounded bg-white/80 hover:bg-white text-slate-700 transition">Bambino</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ETÀ (GIORNI / MESI / ANNI) -->
+                <div class="bg-slate-50 p-2 rounded-lg border border-slate-100">
+                    <div class="flex justify-between items-center mb-1.5">
+                        <div class="flex items-center gap-1.5">
+                            <label for="ageInput" class="text-[11px] font-bold text-slate-700">Età</label>
+                            <div class="flex bg-slate-200/80 p-0.5 rounded-md">
+                                <button type="button" id="btnAgeUnitD" onclick="setAgeUnit('d')" class="px-1.5 py-0.5 text-[9px] font-bold rounded text-slate-600 hover:text-slate-800 transition">Giorni</button>
+                                <button type="button" id="btnAgeUnitM" onclick="setAgeUnit('m')" class="px-1.5 py-0.5 text-[9px] font-bold rounded text-slate-600 hover:text-slate-800 transition">Mesi</button>
+                                <button type="button" id="btnAgeUnitY" onclick="setAgeUnit('y')" class="px-1.5 py-0.5 text-[9px] font-bold rounded bg-white text-sky-700 shadow-2xs transition">Anni</button>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-1">
+                            <button type="button" onclick="changeAge(-1)" class="w-6 h-6 rounded bg-white border border-slate-200 text-slate-700 font-bold shadow-2xs active:scale-95 flex items-center justify-center text-xs">-</button>
+                            <input type="number" id="ageInput" value="5" min="0" max="18" step="1" oninput="syncAgeFromInput()" class="w-14 text-center py-0.5 bg-white border border-slate-300 rounded text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-sky-500">
+                            <button type="button" onclick="changeAge(1)" class="w-6 h-6 rounded bg-white border border-slate-200 text-slate-700 font-bold shadow-2xs active:scale-95 flex items-center justify-center text-xs">+</button>
+                        </div>
+                    </div>
+                    <input type="range" id="ageSlider" min="0" max="18" value="5" step="1" oninput="syncAgeFromSlider()" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-sky-600">
+                    <div class="flex justify-between text-[8px] text-slate-400 font-medium mt-0.5 px-0.5">
+                        <span id="ageRangeMin">0 anni</span>
+                        <span id="ageEquivalentLabel" class="text-slate-500 font-semibold">60 mesi • 1825 giorni</span>
+                        <span id="ageRangeMax">18 anni</span>
+                    </div>
+                </div>
+
+                <!-- PESO CORPOREO (GRAMMI / KG) -->
+                <div class="bg-slate-50 p-2 rounded-lg border border-slate-100">
+                    <div class="flex justify-between items-center mb-1.5">
+                        <div class="flex items-center gap-1.5">
+                            <label for="weight" class="text-[11px] font-bold text-slate-700">Peso Corporeo</label>
+                            <div class="flex bg-slate-200/80 p-0.5 rounded-md">
+                                <button type="button" id="btnWeightUnitG" onclick="setWeightUnit('g')" class="px-1.5 py-0.5 text-[9px] font-bold rounded text-slate-600 hover:text-slate-800 transition">g</button>
+                                <button type="button" id="btnWeightUnitKg" onclick="setWeightUnit('kg')" class="px-1.5 py-0.5 text-[9px] font-bold rounded bg-white text-sky-700 shadow-2xs transition">kg</button>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-1">
+                            <button type="button" id="btnWeightDecBig" onclick="changeWeight(-0.5)" class="px-1.5 h-6 rounded bg-white border border-slate-200 text-slate-600 font-bold shadow-2xs active:scale-95 flex items-center justify-center text-[10px]">-0.5</button>
+                            <button type="button" id="btnWeightDecSmall" onclick="changeWeight(-0.1)" class="w-6 h-6 rounded bg-white border border-slate-200 text-slate-700 font-bold shadow-2xs active:scale-95 flex items-center justify-center text-xs">-</button>
+                            <input type="number" id="weight" value="20" min="0.3" max="120" step="0.1" oninput="syncWeightFromInput()" class="w-16 text-center py-0.5 bg-white border border-slate-300 rounded text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-sky-500">
+                            <button type="button" id="btnWeightIncSmall" onclick="changeWeight(0.1)" class="w-6 h-6 rounded bg-white border border-slate-200 text-slate-700 font-bold shadow-2xs active:scale-95 flex items-center justify-center text-xs">+</button>
+                            <button type="button" id="btnWeightIncBig" onclick="changeWeight(0.5)" class="px-1.5 h-6 rounded bg-white border border-slate-200 text-slate-600 font-bold shadow-2xs active:scale-95 flex items-center justify-center text-[10px]">+0.5</button>
+                        </div>
+                    </div>
+                    <input type="range" id="weightSlider" min="0.3" max="100" value="20" step="0.1" oninput="syncWeightFromSlider()" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-sky-600">
+                    <div class="flex justify-between text-[8px] text-slate-400 font-medium mt-0.5 px-0.5">
+                        <span id="weightRangeMin">0.3 kg</span>
+                        <span id="weightEquivalentLabel" class="text-slate-500 font-semibold">20.000 g</span>
+                        <span id="weightRangeMax">100 kg</span>
+                    </div>
+                </div>
+
+                <!-- LUNGHEZZA / ALTEZZA (CM) -->
+                <div class="bg-slate-50 p-2 rounded-lg border border-slate-100">
+                    <div class="flex justify-between items-center mb-1.5">
+                        <label for="height" id="heightLabel" class="text-[11px] font-bold text-slate-700">Altezza / Lunghezza (cm)</label>
+                        <div class="flex items-center space-x-1">
+                            <button type="button" onclick="changeHeight(-1)" class="px-1.5 h-6 rounded bg-white border border-slate-200 text-slate-600 font-bold shadow-2xs active:scale-95 flex items-center justify-center text-[10px]">-1</button>
+                            <button type="button" onclick="changeHeight(-0.5)" class="w-6 h-6 rounded bg-white border border-slate-200 text-slate-700 font-bold shadow-2xs active:scale-95 flex items-center justify-center text-xs">-</button>
+                            <input type="number" id="height" value="110" min="25" max="200" step="0.5" oninput="syncHeightFromInput()" class="w-16 text-center py-0.5 bg-white border border-slate-300 rounded text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-sky-500">
+                            <button type="button" onclick="changeHeight(0.5)" class="w-6 h-6 rounded bg-white border border-slate-200 text-slate-700 font-bold shadow-2xs active:scale-95 flex items-center justify-center text-xs">+</button>
+                            <button type="button" onclick="changeHeight(1)" class="px-1.5 h-6 rounded bg-white border border-slate-200 text-slate-600 font-bold shadow-2xs active:scale-95 flex items-center justify-center text-[10px]">+1</button>
+                        </div>
+                    </div>
+                    <input type="range" id="heightSlider" min="25" max="195" value="110" step="0.5" oninput="syncHeightFromSlider()" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-sky-600">
+                    <div class="flex justify-between text-[8px] text-slate-400 font-medium mt-0.5 px-0.5">
+                        <span>25 cm (Preterm)</span>
+                        <span id="bsaDisplay" class="text-slate-500 font-semibold">BSA (Haycock): 0.78 m²</span>
+                        <span>195 cm</span>
+                    </div>
+                </div>
+
+                <!-- BMI / INDICE PONDERALE, LIQUIDI MANTENIMENTO & REE -->
+                <div class="grid grid-cols-3 gap-1.5 pt-0.5">
+                    <div id="bmiCard" class="p-1.5 rounded-lg bg-blue-50 border border-blue-100 text-center transition-all">
+                        <span id="bmiLabel" class="text-[8px] font-bold tracking-wider text-blue-600 uppercase block">BMI</span>
+                        <span id="bmiVal" class="text-xs font-extrabold text-blue-900">16.5</span>
+                        <span id="bmiStatus" class="text-[8px] font-semibold block text-blue-700 truncate">kg/m²</span>
+                    </div>
+                    <div id="fluidCard" class="p-1.5 rounded-lg bg-cyan-50 border border-cyan-200 text-center transition-all">
+                        <span id="fluidLabel" class="text-[8px] font-bold tracking-wider text-cyan-700 uppercase block">Liquidi (H-S)</span>
+                        <span id="fluidVal" class="text-xs font-extrabold text-cyan-950">1500 ml</span>
+                        <span id="fluidStatus" class="text-[8px] font-medium block text-cyan-700 truncate">62.5 ml/h</span>
+                    </div>
+                    <div class="p-1.5 rounded-lg bg-purple-50 border border-purple-100 text-center">
+                        <span class="text-[8px] font-bold tracking-wider text-purple-600 uppercase block">REE (Schofield)</span>
+                        <span id="bmrVal" class="text-xs font-extrabold text-purple-900">950</span>
+                        <span class="text-[8px] font-semibold block text-purple-700">kcal/die</span>
+                    </div>
+                </div>
+
+                <!-- MODIFICATORI CLINICI -->
+                <div class="border-t border-slate-100 pt-2">
+                    <button onclick="toggleModifiers()" class="w-full flex justify-between items-center text-[11px] font-bold text-slate-700 py-1 px-1.5 rounded-lg hover:bg-slate-50 transition active:scale-[0.99]">
+                        <span class="flex items-center gap-1">
+                            <span class="p-0.5 bg-amber-100 text-amber-800 rounded text-xs">📋</span>
+                            <span>Modificatori Clinici & Condizioni</span>
+                        </span>
+                        <div class="flex items-center gap-1">
+                            <span class="text-[8px] font-semibold text-slate-400 bg-slate-100 px-1 py-0.5 rounded">Opzionale</span>
+                            <span id="modArrow" class="text-slate-400 font-bold transition-transform duration-200 text-[10px]">&#9660;</span>
+                        </div>
+                    </button>
+                    <div id="modifiersBox" class="hidden space-y-2 pt-1 px-0.5">
+                        <div class="bg-slate-50/90 p-2.5 rounded-xl border border-slate-200/80 space-y-2">
+                            <div>
+                                <label class="block text-[9px] font-bold text-slate-600 uppercase tracking-wider mb-1 flex items-center gap-1">
+                                    <span>🏥</span> Categoria Clinica Pediatrica / Neonatale
+                                </label>
+                                <input type="hidden" id="modCategory" value="none">
+                                <div class="grid grid-cols-2 gap-1" id="modCategoryOptions">
+                                    <button type="button" onclick="selectModOption('modCategory', 'none')" data-val="none" class="mod-cat-btn text-left p-1.5 rounded-lg border border-sky-500 bg-sky-50/80 ring-1 ring-sky-500/30 transition">
+                                        <div class="text-[10px] font-bold text-slate-800 leading-tight">Standard / Età</div>
+                                        <div class="text-[8px] text-sky-700 font-medium">+0 kcal • +0g prot</div>
+                                    </button>
+                                    <button type="button" onclick="selectModOption('modCategory', 'preterm_growth')" data-val="preterm_growth" class="mod-cat-btn text-left p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition">
+                                        <div class="text-[10px] font-bold text-slate-800 leading-tight">Catch-up / VLBW</div>
+                                        <div class="text-[8px] text-slate-500 font-medium">+15 kcal • +0.8g prot</div>
+                                    </button>
+                                    <button type="button" onclick="selectModOption('modCategory', 'surgery')" data-val="surgery" class="mod-cat-btn text-left p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition">
+                                        <div class="text-[10px] font-bold text-slate-800 leading-tight">Post-Chirurgia</div>
+                                        <div class="text-[8px] text-slate-500 font-medium">+10 kcal • +0.5g prot</div>
+                                    </button>
+                                    <button type="button" onclick="selectModOption('modCategory', 'sepsis')" data-val="sepsis" class="mod-cat-btn text-left p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition">
+                                        <div class="text-[10px] font-bold text-slate-800 leading-tight">Sepsi / Critico / Ustioni</div>
+                                        <div class="text-[8px] text-slate-500 font-medium">+15 kcal • +0.7g prot</div>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="pt-1 border-t border-slate-200/60">
+                                <label class="block text-[9px] font-bold text-slate-600 uppercase tracking-wider mb-1 flex items-center gap-1">
+                                    <span>🧠</span> Restrizione Idrica / Neurologica
+                                </label>
+                                <input type="hidden" id="modCranium" value="false">
+                                <div class="grid grid-cols-2 gap-1" id="modCraniumOptions">
+                                    <button type="button" onclick="selectCraniumOption(false)" id="btnCraniumNo" class="text-left p-1.5 rounded-lg border border-sky-500 bg-sky-50/80 ring-1 ring-sky-500/30 transition">
+                                        <div class="text-[10px] font-bold text-slate-800 leading-tight">Standard</div>
+                                        <div class="text-[8px] text-sky-700 font-medium">100% liquidi mantenimento</div>
+                                    </button>
+                                    <button type="button" onclick="selectCraniumOption(true)" id="btnCraniumYes" class="text-left p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition">
+                                        <div class="text-[10px] font-bold text-slate-800 leading-tight">Paziente Cranico</div>
+                                        <div class="text-[8px] text-slate-500 font-medium">Restrizione -30% (70%)</div>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="pt-1 border-t border-slate-200/60">
+                                <label class="block text-[9px] font-bold text-slate-600 uppercase tracking-wider mb-1 flex items-center gap-1">
+                                    <span>🫘</span> Funzione Renale / Dialisi
+                                </label>
+                                <input type="hidden" id="modRenal" value="none">
+                                <div class="grid grid-cols-1 gap-1" id="modRenalOptions">
+                                    <button type="button" onclick="selectModOption('modRenal', 'none')" data-val="none" class="mod-renal-btn text-left p-1.5 rounded-lg border border-sky-500 bg-sky-50/80 ring-1 ring-sky-500/30 transition flex justify-between items-center">
+                                        <div>
+                                            <div class="text-[10px] font-bold text-slate-800 leading-tight">Nella Norma</div>
+                                            <div class="text-[8px] text-sky-700 font-medium">Nessuna restrizione</div>
+                                        </div>
+                                        <span class="text-[8px] font-bold px-1 py-0.5 bg-sky-200/60 text-sky-800 rounded">+0g prot</span>
+                                    </button>
+                                    <button type="button" onclick="selectModOption('modRenal', 'aki')" data-val="aki" class="mod-renal-btn text-left p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition flex justify-between items-center">
+                                        <div>
+                                            <div class="text-[10px] font-bold text-slate-800 leading-tight">AKI / IRC Conservativa</div>
+                                            <div class="text-[8px] text-slate-500 font-medium">Riduzione apporto proteico</div>
+                                        </div>
+                                        <span class="text-[8px] font-bold px-1 py-0.5 bg-slate-100 text-slate-600 rounded">-0.5 g prot</span>
+                                    </button>
+                                    <button type="button" onclick="selectModOption('modRenal', 'crrt')" data-val="crrt" class="mod-renal-btn text-left p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition flex justify-between items-center">
+                                        <div>
+                                            <div class="text-[10px] font-bold text-slate-800 leading-tight">CRRT / Dialisi Peritoneale</div>
+                                            <div class="text-[8px] text-slate-500 font-medium">Compenso perdite dialitiche</div>
+                                        </div>
+                                        <span class="text-[8px] font-bold px-1 py-0.5 bg-slate-100 text-slate-600 rounded">+0.5 g prot</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- GRAFICI ORIZZONTALI BILANCIO -->
+            <div class="bg-white p-3 rounded-xl shadow-xs border border-slate-200 space-y-3">
+                <div class="border-b border-slate-100 pb-1.5 flex justify-between items-center">
+                    <h2 class="text-[11px] font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1">
+                        <span>📊</span> Bilancio Nutrizionale (Target vs Apporto)
+                    </h2>
+                    <button onclick="clearAllInfusions()" class="text-[9px] font-bold text-rose-600 hover:underline">Svuota Terapia</button>
+                </div>
+
+                <!-- CALORIE -->
+                <div class="space-y-1">
+                    <div class="flex justify-between items-baseline text-[11px]">
+                        <span class="font-bold text-amber-900">🔥 Calorie Totali</span>
+                        <span class="font-semibold text-slate-600"><span id="colKcalGiven" class="font-extrabold text-amber-800">0</span> / <span id="colKcalTarget">1200-1500</span> kcal</span>
+                    </div>
+                    <div class="w-full bg-slate-100 h-3.5 rounded-full overflow-hidden p-0.5 border border-slate-200 relative">
+                        <div id="barKcalFill" class="bg-gradient-to-r from-amber-500 to-amber-400 h-full rounded-full transition-all duration-300 flex items-center justify-end pr-1.5" style="width: 0%;">
+                            <span id="barKcalPct" class="text-[8px] font-extrabold text-white drop-shadow">0%</span>
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-center text-[8px] text-slate-400 px-0.5">
+                        <span>Apporto relativo: <b id="kcalPerKgVal" class="text-slate-700">0.0</b> <span id="kcalUnitLabel">kcal/kg/die</span></span>
+                        <span>Target: <b id="targetKcalPerKgVal" class="text-slate-700">60-75</b> kcal/kg/die</span>
+                    </div>
+                </div>
+
+                <!-- PROTEINE -->
+                <div class="space-y-1">
+                    <div class="flex justify-between items-baseline text-[11px]">
+                        <span class="font-bold text-indigo-900">🥩 Proteine Totali</span>
+                        <span class="font-semibold text-slate-600"><span id="colProtGiven" class="font-extrabold text-indigo-800">0.0</span> / <span id="colProtTarget">30-40</span> g</span>
+                    </div>
+                    <div class="w-full bg-slate-100 h-3.5 rounded-full overflow-hidden p-0.5 border border-slate-200 relative">
+                        <div id="barProtFill" class="bg-gradient-to-r from-indigo-600 to-indigo-400 h-full rounded-full transition-all duration-300 flex items-center justify-end pr-1.5" style="width: 0%;">
+                            <span id="barProtPct" class="text-[8px] font-extrabold text-white drop-shadow">0%</span>
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-center text-[8px] text-slate-400 px-0.5">
+                        <span>Apporto relativo: <b id="protPerKgVal" class="text-slate-700">0.00</b> <span id="protUnitLabel">g/kg/die</span></span>
+                        <span>Target: <b id="targetProtPerKgVal" class="text-slate-700">1.5-2.0</b> g/kg/die</span>
+                    </div>
+                </div>
+
+                <!-- LIQUIDI TOTALI SOMMINISTRATI -->
+                <div class="space-y-1">
+                    <div class="flex justify-between items-baseline text-[11px]">
+                        <span class="font-bold text-cyan-900">💧 Liquidi Somministrati</span>
+                        <span class="font-semibold text-slate-600"><span id="colVolGiven" class="font-extrabold text-cyan-800">0</span> / <span id="colVolTarget">1500</span> ml (<span id="volPerKgVal" class="text-cyan-700 font-bold">0</span> ml/kg/die)</span>
+                    </div>
+                    <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden p-0.5 border border-slate-200 relative">
+                        <div id="barVolFill" class="bg-gradient-to-r from-cyan-600 to-sky-400 h-full rounded-full transition-all duration-300" style="width: 0%;"></div>
+                    </div>
+                </div>
+
+                <!-- ALERT CLINICO LIPIDI -->
+                <div id="lipidAlertBox" class="hidden p-2 bg-rose-50 border border-rose-200 rounded-lg text-rose-800 text-[11px] font-semibold flex items-center gap-1.5">
+                    <span class="text-sm">⚠️</span>
+                    <div>
+                        <span class="font-bold block text-[10px]">Attenzione: Lipidi Elevati!</span>
+                        <span id="lipidAlertText" class="text-[9px] text-rose-700">I lipidi somministrati superano 3.0 g/kg/die.</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SOMMINISTRAZIONE PRODOTTI (TERAPIA 24H) -->
+            <div class="bg-white p-3 rounded-xl shadow-xs border border-slate-200 space-y-2.5">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-1.5">
+                    <h2 class="text-[11px] font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1">
+                        <span>💉</span> TERAPIA & SOMMINISTRAZIONE 24H
+                    </h2>
+                </div>
+
+                <div class="space-y-1">
+                    <label class="block text-[9px] font-bold text-slate-500 uppercase tracking-wider">Aggiungi prodotto pediatrico/neonatale in scheda</label>
+                    <button onclick="openAdminPickerModal()" class="w-full flex justify-between items-center px-3 py-2 bg-slate-50/80 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition active:scale-[0.99]">
+                        <span id="selectedProductLabel" class="truncate text-slate-500 font-medium flex items-center gap-1.5">🔍 Seleziona formula o sacca...</span>
+                        <span class="text-xs font-bold text-sky-600 ml-2 shrink-0">+ Scegli</span>
+                    </button>
+                </div>
+
+                <div id="administeredCardsContainer" class="space-y-2 pt-0.5"></div>
+
+                <div id="adminSummaryBox" class="p-2.5 bg-slate-50/90 rounded-xl border border-slate-200/90 hidden space-y-1.5">
+                    <span class="block text-[9px] font-bold text-slate-600 uppercase tracking-wider">Ripartizione Calorica & Substrati (24h):</span>
+                    <div class="grid grid-cols-2 gap-1.5 text-center text-xs">
+                        <div class="p-1.5 bg-amber-50/90 rounded-lg border border-amber-200/60">
+                            <span class="block text-[8px] text-amber-800 font-bold uppercase">Kcal Glucidiche</span>
+                            <span id="sumGluKcal" class="text-xs font-extrabold text-amber-900">0 kcal</span>
+                        </div>
+                        <div class="p-2 bg-rose-50/90 rounded-lg border border-rose-200/60">
+                            <span class="block text-[8px] text-rose-800 font-bold uppercase">Kcal Lipidiche</span>
+                            <span id="sumLipKcal" class="text-xs font-extrabold text-rose-900">0 kcal</span>
+                        </div>
+                        <div class="p-1.5 bg-indigo-50/90 rounded-lg border border-indigo-200/60">
+                            <span class="block text-[8px] text-indigo-800 font-bold uppercase">Kcal Proteiche</span>
+                            <span id="sumProtKcal" class="text-xs font-extrabold text-indigo-900">0 kcal</span>
+                        </div>
+                        <div class="p-1.5 bg-sky-50/90 rounded-lg border border-sky-200/60">
+                            <span class="block text-[8px] text-sky-800 font-bold uppercase">Grammi Prot</span>
+                            <span id="sumProtGrams" class="text-xs font-extrabold text-sky-900">0.0 g</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BOTTONE RESET CALCOLO -->
+            <div class="pt-1 flex justify-center">
+                <button onclick="resetCalcTab()" class="w-full py-2 bg-slate-200 hover:bg-slate-300 active:scale-95 text-slate-700 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1 shadow-2xs">
+                    <span>🔄</span> Ripristina Impostazioni Calcolo
+                </button>
+            </div>
+
+        </div>
+
+        <!-- TAB 2: PARENTERALE (NTP) -->
+        <div id="tab-ntp" class="tab-content hidden space-y-2.5">
+            <div class="flex justify-between items-center bg-white p-3 rounded-xl shadow-xs border border-slate-200">
+                <div>
+                    <h2 class="text-[11px] font-bold uppercase tracking-wider text-slate-700">NTP Pediatrica & Neonatale</h2>
+                    <p class="text-[9px] text-slate-500">Sacche & Soluzioni Parenterali Pediatriche</p>
+                </div>
+                <button onclick="openProductModal('NTP')" class="bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold px-2.5 py-1 rounded-lg shadow-2xs">
+                    + Nuovo
+                </button>
+            </div>
+            <input type="text" placeholder="🔍 Cerca prodotto NTP..." oninput="filterProductList('NTP', this.value)" class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-sky-500 outline-none">
+            <div id="list-ntp-container" class="space-y-1.5"></div>
+        </div>
+
+        <!-- TAB 3: ENTERALE / LATTI (NTE) -->
+        <div id="tab-nte" class="tab-content hidden space-y-2.5">
+            <div class="flex justify-between items-center bg-white p-3 rounded-xl shadow-xs border border-slate-200">
+                <div>
+                    <h2 class="text-[11px] font-bold uppercase tracking-wider text-slate-700">Formule NTE & Latti</h2>
+                    <p class="text-[9px] text-slate-500">Latti per Lattanti, Preterm & Formule Enterali</p>
+                </div>
+                <button onclick="openProductModal('NTE')" class="bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold px-2.5 py-1 rounded-lg shadow-2xs">
+                    + Nuovo
+                </button>
+            </div>
+            <input type="text" placeholder="🔍 Cerca formula o latte..." oninput="filterProductList('NTE', this.value)" class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-sky-500 outline-none">
+            <div id="list-nte-container" class="space-y-1.5"></div>
+        </div>
+
+        <!-- TAB 4: INTEGRATORI & MODULI -->
+        <div id="tab-int" class="tab-content hidden space-y-2.5">
+            <div class="flex justify-between items-center bg-white p-3 rounded-xl shadow-xs border border-slate-200">
+                <div>
+                    <h2 class="text-[11px] font-bold uppercase tracking-wider text-slate-700">Integratori & Moduli</h2>
+                    <p class="text-[9px] text-slate-500">Fortificanti Latte Materno, Moduli & Supplementi</p>
+                </div>
+                <button onclick="openProductModal('INTEGRATORE')" class="bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold px-2.5 py-1 rounded-lg shadow-2xs">
+                    + Nuovo
+                </button>
+            </div>
+            <input type="text" placeholder="🔍 Cerca integratore o modulo..." oninput="filterProductList('INTEGRATORE', this.value)" class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-sky-500 outline-none">
+            <div id="list-int-container" class="space-y-1.5"></div>
+        </div>
+
+    </main>
+
+    <!-- BOTTOM NAVIGATION BAR -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 z-40 px-2 py-1.5 shadow-lg no-print">
+        <div class="grid grid-cols-4 gap-1 max-w-lg mx-auto text-center">
+            <button onclick="switchTab('calc')" id="nav-btn-calc" class="flex flex-col items-center justify-center py-1 rounded-xl text-sky-700 bg-sky-50 transition font-bold">
+                <span class="text-sm">🧮</span>
+                <span class="text-[9px] mt-0.5">Calcolo</span>
+            </button>
+            <button onclick="switchTab('ntp')" id="nav-btn-ntp" class="flex flex-col items-center justify-center py-1 rounded-xl text-slate-500 hover:text-slate-800 transition font-medium">
+                <span class="text-sm">🩸</span>
+                <span class="text-[9px] mt-0.5">NTP</span>
+            </button>
+            <button onclick="switchTab('nte')" id="nav-btn-nte" class="flex flex-col items-center justify-center py-1 rounded-xl text-slate-500 hover:text-slate-800 transition font-medium">
+                <span class="text-sm">🍼</span>
+                <span class="text-[9px] mt-0.5">NTE/Latti</span>
+            </button>
+            <button onclick="switchTab('int')" id="nav-btn-int" class="flex flex-col items-center justify-center py-1 rounded-xl text-slate-500 hover:text-slate-800 transition font-medium">
+                <span class="text-sm">💊</span>
+                <span class="text-[9px] mt-0.5">Integr.</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- MODAL AGGIUNTA/MODIFICA PRODOTTO -->
+    <div id="productModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center hidden p-0 sm:p-4 no-print">
+        <div class="bg-white rounded-t-3xl sm:rounded-2xl shadow-xl border border-slate-200 w-full max-w-lg p-4 space-y-3 max-h-[90vh] overflow-y-auto no-scrollbar">
+            <div class="flex justify-between items-center border-b pb-2">
+                <h3 id="modalTitle" class="text-xs font-bold uppercase tracking-wider text-slate-800">Nuovo Prodotto</h3>
+                <button onclick="closeProductModal()" class="text-slate-400 hover:text-slate-600 font-bold text-xl px-2">&times;</button>
+            </div>
+            
+            <form id="productForm" onsubmit="event.preventDefault(); saveProduct();" class="space-y-2.5">
+                <input type="hidden" id="prodCategory">
+                <input type="hidden" id="prodEditId" value="">
+                
+                <div>
+                    <label class="block text-[9px] font-bold text-slate-700 mb-0.5">Nome Prodotto *</label>
+                    <input type="text" id="prodName" required placeholder="Es. Infatrini / Pediasure / Numeta" class="w-full px-2.5 py-1.5 border rounded-lg text-xs font-medium outline-none focus:ring-1 focus:ring-sky-500 bg-slate-50">
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-[9px] font-bold text-slate-700 mb-0.5">Marca / Produttore</label>
+                        <input type="text" id="prodBrand" placeholder="Es. Nutricia / Baxter" class="w-full px-2.5 py-1.5 border rounded-lg text-xs font-medium outline-none focus:ring-1 focus:ring-sky-500 bg-slate-50">
+                    </div>
+                    <div>
+                        <label class="block text-[9px] font-bold text-slate-700 mb-0.5">Vol. Unità (ml)</label>
+                        <input type="number" step="1" id="prodUnitVolume" placeholder="Es. 100 o 200" class="w-full px-2.5 py-1.5 border rounded-lg text-xs font-medium outline-none focus:ring-1 focus:ring-sky-500 bg-slate-50">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-[9px] font-bold text-slate-700 mb-0.5">Kcal / ml *</label>
+                        <input type="number" step="0.001" id="prodKcalMl" oninput="autoCalculateKcalBreakdown()" placeholder="Es. 1.0" class="w-full px-2.5 py-1.5 border rounded-lg text-xs font-medium outline-none focus:ring-1 focus:ring-sky-500 bg-slate-50">
+                    </div>
+                    <div>
+                        <label class="block text-[9px] font-bold text-slate-700 mb-0.5">Osmolarità (mOsm/l)</label>
+                        <input type="number" step="1" id="prodOsm" placeholder="Es. 360" class="w-full px-2.5 py-1.5 border rounded-lg text-xs font-medium outline-none focus:ring-1 focus:ring-sky-500 bg-slate-50">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-[9px] font-bold text-slate-700 mb-0.5">Proteine (g / 100ml)</label>
+                        <input type="number" step="0.01" id="prodProt" oninput="autoCalculateKcalBreakdown()" placeholder="Es. 2.6" class="w-full px-2.5 py-1.5 border rounded-lg text-xs font-medium outline-none focus:ring-1 focus:ring-sky-500 bg-slate-50">
+                    </div>
+                    <div>
+                        <label class="block text-[9px] font-bold text-slate-700 mb-0.5">Lipidi (g / 100ml)</label>
+                        <input type="number" step="0.01" id="prodLip" oninput="autoCalculateKcalBreakdown()" placeholder="Es. 5.4" class="w-full px-2.5 py-1.5 border rounded-lg text-xs font-medium outline-none focus:ring-1 focus:ring-sky-500 bg-slate-50">
+                    </div>
+                </div>
+
+                <div class="bg-slate-50 p-2 rounded-lg border border-slate-200">
+                    <span class="block text-[9px] font-bold text-slate-600 mb-1">Ripartizione Calorica / 100 ml (Auto):</span>
+                    <div class="grid grid-cols-3 gap-1.5">
+                        <div>
+                            <label class="block text-[8px] text-slate-500 mb-0.5">Glu Kcal</label>
+                            <input type="number" step="0.01" id="prodKcalGlu" class="w-full px-2 py-0.5 border rounded text-xs bg-white font-bold text-amber-800">
+                        </div>
+                        <div>
+                            <label class="block text-[8px] text-slate-500 mb-0.5">Lip Kcal</label>
+                            <input type="number" step="0.01" id="prodKcalLip" class="w-full px-2 py-0.5 border rounded text-xs bg-white font-bold text-rose-800">
+                        </div>
+                        <div>
+                            <label class="block text-[8px] text-slate-500 mb-0.5">Prot Kcal</label>
+                            <input type="number" step="0.01" id="prodKcalProt" class="w-full px-2 py-0.5 border rounded text-xs bg-white font-bold text-indigo-800">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex gap-2 pt-1">
+                    <button type="button" onclick="closeProductModal()" class="flex-1 py-2 border rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50">Annulla</button>
+                    <button type="submit" id="prodSaveBtn" class="flex-1 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold shadow-xs">Salva Prodotto</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL ADMIN LOGIN PIN -->
+    <div id="adminPinModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[60] flex items-center justify-center hidden p-4 no-print">
+        <div class="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-xs p-4 space-y-3">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-2">
+                <div class="flex items-center gap-1.5">
+                    <span class="p-1.5 bg-amber-100 text-amber-800 rounded-lg text-xs">🔑</span>
+                    <h3 class="text-xs font-extrabold uppercase tracking-wider text-slate-800">Accesso Admin</h3>
+                </div>
+                <button onclick="closeAdminPinModal()" class="text-slate-400 hover:text-slate-600 font-bold text-xl px-2">&times;</button>
+            </div>
+
+            <p class="text-[10px] text-slate-500 text-center">Inserisci il PIN a 4 cifre per gestire il database prodotti pediatrici (Modifica & Eliminazione).</p>
+
+            <form onsubmit="event.preventDefault(); verifyAdminPin();" class="space-y-3">
+                <div class="flex justify-center">
+                    <input type="password" id="adminPinInput" maxlength="4" placeholder="••••" pattern="[0-9]*" inputmode="numeric" class="w-32 text-center text-xl font-bold tracking-widest py-2 border-2 border-slate-200 focus:border-amber-500 rounded-xl outline-none bg-slate-50 transition">
+                </div>
+
+                <div id="pinErrorMsg" class="hidden text-[10px] text-rose-600 font-bold text-center">
+                    ❌ PIN errato! Riprova.
+                </div>
+
+                <div class="flex gap-2 pt-1">
+                    <button type="button" onclick="closeAdminPinModal()" class="flex-1 py-2 border rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50">Annulla</button>
+                    <button type="submit" class="flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold shadow-xs">Accedi</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL MOBILE SELECTOR PRODOTTO SOMMINISTRAZIONE -->
+    <div id="adminPickerModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center hidden p-0 sm:p-4 no-print">
+        <div class="bg-slate-50 rounded-t-3xl sm:rounded-2xl shadow-xl border border-slate-200 w-full max-w-lg p-3.5 space-y-2.5 max-h-[85vh] flex flex-col">
+            <div class="flex justify-between items-center pb-0.5 shrink-0">
+                <h3 class="text-xs font-extrabold uppercase tracking-wider text-slate-800">SELEZIONA PRODOTTO PEDIATRICO</h3>
+                <button onclick="closeAdminPickerModal()" class="text-slate-400 hover:text-slate-600 font-bold text-xl px-2">&times;</button>
+            </div>
+            
+            <div class="shrink-0 space-y-2">
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 text-xs">🔍</span>
+                    <input type="text" id="pickerSearchInput" placeholder="Cerca per nome o marca..." oninput="renderPickerList(this.value)" class="w-full pl-8 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:ring-1 focus:ring-sky-500 font-medium placeholder-slate-400">
+                </div>
+                <div class="grid grid-cols-4 gap-1.5">
+                    <button onclick="setPickerFilter('ALL')" id="pickerFilterALL" class="py-1.5 text-[11px] font-bold rounded-xl bg-sky-600 text-white shadow-xs transition">Tutti</button>
+                    <button onclick="setPickerFilter('NTP')" id="pickerFilterNTP" class="py-1.5 text-[11px] font-bold rounded-xl bg-slate-200/70 text-slate-700 hover:bg-slate-200 transition">NTP</button>
+                    <button onclick="setPickerFilter('NTE')" id="pickerFilterNTE" class="py-1.5 text-[11px] font-bold rounded-xl bg-slate-200/70 text-slate-700 hover:bg-slate-200 transition">NTE/Latti</button>
+                    <button onclick="setPickerFilter('INTEGRATORE')" id="pickerFilterINT" class="py-1.5 text-[11px] font-bold rounded-xl bg-slate-200/70 text-slate-700 hover:bg-slate-200 transition">Integr.</button>
+                </div>
+            </div>
+
+            <div id="pickerItemsContainer" class="flex-1 overflow-y-auto space-y-3 no-scrollbar pt-1 pr-0.5">
+                <!-- Lista raggruppata per categoria generata da JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL INFORMAZIONI E CREDITS -->
+    <div id="infoModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center hidden p-4 no-print">
+        <div class="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-md p-4 space-y-3 max-h-[85vh] overflow-y-auto no-scrollbar">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-2">
+                <div class="flex items-center gap-1.5">
+                    <span class="p-1 bg-sky-100 text-sky-800 rounded-lg text-xs">ℹ️</span>
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-800">Informazioni NutriCalc Ped</h3>
+                </div>
+                <button onclick="closeInfoModal()" class="text-slate-400 hover:text-slate-600 font-bold text-xl px-2">&times;</button>
+            </div>
+
+            <!-- AUTORE -->
+            <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200 space-y-0.5">
+                <span class="block text-[8px] font-bold uppercase tracking-wider text-sky-700">Ideato e Sviluppato da</span>
+                <p class="text-xs font-extrabold text-slate-900">Dr. Danilo Grasso</p>
+                <p class="text-[10px] font-medium text-slate-600">Anestesista Rianimatore</p>
+                <p class="text-[9px] text-slate-500">A.O.E. Cannizzaro di Catania</p>
+            </div>
+
+            <!-- RIFERIMENTI SCIENTIFICI -->
+            <div class="space-y-1">
+                <span class="block text-[9px] font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1">
+                    <span>📚</span> Riferimenti Scientifici Pediatrici
+                </span>
+                <p class="text-[10px] text-slate-600 leading-relaxed bg-sky-50/60 p-2 rounded-xl border border-sky-100">
+                    Il calcolo dei fabbisogni calorico-proteici, del dispendio energetico (Schofield) e del bilancio idrico (Holliday-Segar / ESPGHAN neonatale) si basa sulle <b>Linee Guida ESPGHAN / ESPEN</b> per la Nutrizione Clinica Pediatrica e Neonatale.
+                </p>
+            </div>
+
+            <!-- STATO DATABASE CLOUD AUTOMATICO -->
+            <div class="pt-0.5 border-t border-slate-100">
+                <div class="bg-slate-50 p-2 rounded-xl border border-slate-200 flex flex-col gap-1.5">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <span class="block text-[8px] font-bold uppercase tracking-wider text-slate-500">Database Firebase (NutriCalc Ped)</span>
+                            <span id="authStatusBadge" class="text-[9px] font-bold text-slate-700">⚠️ Connessione in corso...</span>
+                        </div>
+                        <span id="cloudSyncIndicator" class="text-[9px] font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">Salvataggio Locale</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-1.5 pt-1">
+                        <button onclick="retryCloudConnection()" class="py-1 text-[9px] font-bold bg-sky-600 hover:bg-sky-700 text-white rounded-lg transition shadow-2xs flex items-center justify-center gap-1">
+                            <span>🔄</span> Riconnetti Cloud
+                        </button>
+                        <button onclick="forceSyncFromCloud()" class="py-1 text-[9px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition shadow-2xs flex items-center justify-center gap-1">
+                            <span>☁️</span> Carica Dati Cloud
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DISCLAIMER MEDICO LEGALE -->
+            <div class="p-2 bg-amber-50 rounded-xl border border-amber-200 space-y-0.5">
+                <span class="block text-[8px] font-bold uppercase tracking-wider text-amber-800">⚠️ Avviso ad Uso Esclusivo Medico</span>
+                <p class="text-[9px] text-amber-900 leading-normal">
+                    NutriCalc Ped è uno strumento di supporto decisionale destinato esclusivamente a personale sanitario qualificato.
+                </p>
+            </div>
+
+            <!-- PULSANTE CONTATTA LO SVILUPPATORE & LINK DISCRETO AMMINISTRATORE -->
+            <div class="pt-2 text-center border-t border-slate-100 flex flex-col items-center gap-1.5">
+                <button onclick="openContactModal()" class="w-full py-1.5 bg-sky-50 hover:bg-sky-100 border border-sky-200 text-sky-800 text-[10px] font-bold rounded-xl transition flex items-center justify-center gap-1.5 shadow-2xs">
+                    💬 Contatta lo Sviluppatore / Suggerimenti
+                </button>
+                <button id="btnAdminAccessHidden" onclick="handleAdminButtonClick()" class="text-[9px] text-slate-400 hover:text-slate-600 transition underline pt-1">
+                    🔒 Area Riservata / Amministratore
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL CONTATTA LO SVILUPPATORE -->
+    <div id="contactModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[60] flex items-center justify-center hidden p-4 no-print">
+        <div class="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-sm p-4 space-y-3 max-h-[90vh] overflow-y-auto no-scrollbar">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-2">
+                <div class="flex items-center gap-1.5">
+                    <span class="p-1.5 bg-sky-100 text-sky-800 rounded-lg text-xs">💬</span>
+                    <h3 class="text-xs font-extrabold uppercase tracking-wider text-slate-800">Contatta il Creatore</h3>
+                </div>
+                <button onclick="closeContactModal()" class="text-slate-400 hover:text-slate-600 font-bold text-xl px-2">&times;</button>
+            </div>
+
+            <p class="text-[10px] text-slate-500">Invia un messaggio diretto al Dr. Danilo Grasso riguardo NutriCalc Ped.</p>
+
+            <form id="contactForm" onsubmit="event.preventDefault(); submitContactForm();" class="space-y-2">
+                <input type="hidden" name="access_key" id="web3formsAccessKey" value="230c80b1-9472-4558-a5fd-a560f6ff3cdb">
+                <input type="hidden" name="to_email" value="dr.danicar28@gmail.com">
+                
+                <div>
+                    <label class="block text-[9px] font-bold text-slate-700 mb-0.5">Il tuo Nome & Qualifica *</label>
+                    <input type="text" id="contactSenderName" required placeholder="Es. Dr. Mario Rossi - Pediatra" class="w-full px-2.5 py-1.5 border rounded-lg text-xs font-medium outline-none focus:ring-1 focus:ring-sky-500 bg-slate-50">
+                </div>
+
+                <div>
+                    <label class="block text-[9px] font-bold text-slate-700 mb-0.5">La tua Email *</label>
+                    <input type="email" id="contactSenderEmail" required placeholder="Es. mario.rossi@ospedale.it" class="w-full px-2.5 py-1.5 border rounded-lg text-xs font-medium outline-none focus:ring-1 focus:ring-sky-500 bg-slate-50">
+                </div>
+
+                <div>
+                    <label class="block text-[9px] font-bold text-slate-700 mb-0.5">Oggetto *</label>
+                    <input type="text" id="contactSubject" required placeholder="Es. Nuova formula lattea pediatrica" class="w-full px-2.5 py-1.5 border rounded-lg text-xs font-medium outline-none focus:ring-1 focus:ring-sky-500 bg-slate-50">
+                </div>
+
+                <div>
+                    <label class="block text-[9px] font-bold text-slate-700 mb-0.5">Messaggio *</label>
+                    <textarea id="contactMessage" required rows="3" placeholder="Scrivi qui il tuo messaggio..." class="w-full px-2.5 py-1.5 border rounded-lg text-xs font-medium outline-none focus:ring-1 focus:ring-sky-500 bg-slate-50"></textarea>
+                </div>
+
+                <div id="contactStatusMsg" class="hidden text-[10px] font-bold text-center py-1 rounded-lg"></div>
+
+                <div class="flex gap-2 pt-1">
+                    <button type="button" onclick="closeContactModal()" class="flex-1 py-2 border rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50">Annulla</button>
+                    <button type="submit" id="contactSubmitBtn" class="flex-1 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold shadow-xs flex items-center justify-center gap-1">
+                        <span>📤</span> Invia Messaggio
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- FIREBASE SDK & CLOUD DB INTEGRATION -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+          apiKey: "AIzaSyDTgYgE2vyCLLYE9WAxMbnE6VXcWzLpkug",
+          authDomain: "nutricalc-ped.firebaseapp.com",
+          projectId: "nutricalc-ped",
+          storageBucket: "nutricalc-ped.firebasestorage.app",
+          messagingSenderId: "782229598439",
+          appId: "1:782229598439:web:348e197ed460e545c5f242",
+          measurementId: "G-3DD3JD8TZW"
+        };
+
+        let app, db, auth;
+        let isCloudAvailable = false;
+        let unsubscribeSnapshot = null;
+
+        async function initFirebaseConnection() {
+            try {
+                if (!app) app = initializeApp(firebaseConfig);
+                if (!db) db = getFirestore(app);
+                if (!auth) auth = getAuth(app);
+
+                let userCredential = auth.currentUser;
+                if (!userCredential) {
+                    userCredential = await signInAnonymously(auth);
+                }
+
+                if (userCredential) {
+                    isCloudAvailable = true;
+                    updateAuthBadgeUI(true, "🟢 Connesso al Cloud NutriCalc Ped");
+                    setupCloudSync();
+                }
+            } catch(error) {
+                console.warn("Errore Auth Firebase:", error.message);
+                isCloudAvailable = false;
+                updateAuthBadgeUI(false, "🟡 Modalità Locale (" + (error.code || "Offline") + ")");
+            }
+        }
+
+        function updateAuthBadgeUI(online, text) {
+            const authStatus = document.getElementById('authStatusBadge');
+            const syncInd = document.getElementById('cloudSyncIndicator');
+            if (authStatus) authStatus.innerText = text;
+            if (syncInd) {
+                if (online) {
+                    syncInd.innerText = "Sincronizzazione Attiva";
+                    syncInd.className = "text-[9px] font-semibold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded border border-sky-200";
+                } else {
+                    syncInd.innerText = "Salvataggio Locale";
+                    syncInd.className = "text-[9px] font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200";
+                }
+            }
+        }
+
+        function setupCloudSync() {
+            if (!db) return;
+            if (unsubscribeSnapshot) unsubscribeSnapshot();
+
+            const publicDataCol = collection(db, 'pediatricProductsCatalog');
+            const catalogDocRef = doc(publicDataCol, 'mainCatalogPed');
+
+            unsubscribeSnapshot = onSnapshot(catalogDocRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const cloudData = docSnap.data();
+                    if (cloudData && cloudData.products) {
+                        window.productsData = cloudData.products;
+                        localStorage.setItem('nutricalc_ped_products_v1', JSON.stringify(cloudData.products));
+                        if (typeof window.renderAllProductLists === 'function') {
+                            window.renderAllProductLists();
+                        }
+                    }
+                } else {
+                    setDoc(catalogDocRef, { products: window.DEFAULT_PRODUCTS, updatedAt: Date.now(), updatedBy: "InitPed" })
+                        .catch(e => console.warn("Errore Scrittura Init Cloud:", e));
+                }
+            }, (error) => {
+                console.warn("Ascolto Firestore fallito:", error.message);
+                updateAuthBadgeUI(false, "🟡 Modalità Locale");
+                isCloudAvailable = false;
+            });
+        }
+
+        window.retryCloudConnection = function() {
+            updateAuthBadgeUI(false, "🔄 Tentativo di connessione...");
+            initFirebaseConnection();
+        };
+
+        window.forceSyncFromCloud = function() {
+            if (typeof window.fetchCloudDataNow === 'function') {
+                window.fetchCloudDataNow();
+            } else {
+                window.location.reload();
+            }
+        };
+
+        window.fetchCloudDataNow = async function() {
+            if (!db) return;
+            try {
+                const publicDataCol = collection(db, 'pediatricProductsCatalog');
+                const catalogDocRef = doc(publicDataCol, 'mainCatalogPed');
+                const docSnap = await getDoc(catalogDocRef);
+                if (docSnap.exists() && docSnap.data().products) {
+                    window.productsData = docSnap.data().products;
+                    localStorage.setItem('nutricalc_ped_products_v1', JSON.stringify(window.productsData));
+                    if (typeof window.renderAllProductLists === 'function') {
+                        window.renderAllProductLists();
+                    }
+                    if (typeof window.renderPickerList === 'function') {
+                        window.renderPickerList(document.getElementById('pickerSearchInput')?.value || '');
+                    }
+                }
+            } catch(e) {
+                console.warn("Errore durante la lettura manuale da Cloud:", e);
+            }
+        };
+
+        window.syncProductsToCloud = async function(updatedProducts) {
+            if (!db) return;
+            try {
+                const publicDataCol = collection(db, 'pediatricProductsCatalog');
+                const catalogDocRef = doc(publicDataCol, 'mainCatalogPed');
+                await setDoc(catalogDocRef, { 
+                    products: updatedProducts, 
+                    updatedAt: Date.now()
+                }, { merge: true });
+            } catch(e) {
+                console.warn("Errore durante il salvataggio in Cloud:", e.message);
+            }
+        };
+
+        initFirebaseConnection();
+    </script>
+
+    <!-- LOGICA DI APPLICAZIONE NUTRICACL PED -->
+    <script>
+        // --- DEFAULTS E PRODOTTI BASE PEDIATRICI ---
+        window.DEFAULT_PRODUCTS = {
+            NTP: [
+                { id: 'ped_ntp_1', name: 'Numeta G13E (Preterm)', brand: 'Baxter', unitVol: 300, kcalMl: 0.91, osm: 1150, prot: 3.1, lip: 2.5, gluKcal: 53.3, lipKcal: 22.5, protKcal: 12.4 },
+                { id: 'ped_ntp_2', name: 'Numeta G16E (0-2 anni)', brand: 'Baxter', unitVol: 500, kcalMl: 1.03, osm: 1230, prot: 2.6, lip: 3.1, gluKcal: 62.0, lipKcal: 27.9, protKcal: 10.4 },
+                { id: 'ped_ntp_3', name: 'Numeta G19E (2-18 anni)', brand: 'Baxter', unitVol: 1000, kcalMl: 1.14, osm: 1460, prot: 2.3, lip: 2.8, gluKcal: 76.8, lipKcal: 25.2, protKcal: 9.2 },
+                { id: 'ped_ntp_4', name: 'Glucosata 10%', brand: 'Generico', unitVol: 500, kcalMl: 0.4, osm: 555, prot: 0, lip: 0, gluKcal: 40, lipKcal: 0, protKcal: 0 },
+                { id: 'ped_ntp_5', name: 'Glucosata 5%', brand: 'Generico', unitVol: 500, kcalMl: 0.2, osm: 278, prot: 0, lip: 0, gluKcal: 20, lipKcal: 0, protKcal: 0 }
+            ],
+            NTE: [
+                { id: 'ped_nte_1', name: 'Infatrini (0-18 mesi / <9kg)', brand: 'Nutricia', unitVol: 100, kcalMl: 1.0, osm: 360, prot: 2.6, lip: 5.4, gluKcal: 41.2, lipKcal: 48.6, protKcal: 10.4 },
+                { id: 'ped_nte_2', name: 'Infatrini Peptisorb', brand: 'Nutricia', unitVol: 200, kcalMl: 1.0, osm: 350, prot: 2.6, lip: 5.4, gluKcal: 41.2, lipKcal: 48.6, protKcal: 10.4 },
+                { id: 'ped_nte_3', name: 'Nutrini (1-6 anni)', brand: 'Nutricia', unitVol: 500, kcalMl: 1.0, osm: 200, prot: 2.5, lip: 4.4, gluKcal: 49.2, lipKcal: 39.6, protKcal: 10.0 },
+                { id: 'ped_nte_4', name: 'Nutrini Energy (1-6 anni)', brand: 'Nutricia', unitVol: 500, kcalMl: 1.5, osm: 300, prot: 4.1, lip: 6.7, gluKcal: 74.0, lipKcal: 60.3, protKcal: 16.4 },
+                { id: 'ped_nte_5', name: 'Pediasure Plus (200 ml)', brand: 'Abbott', unitVol: 200, kcalMl: 1.5, osm: 390, prot: 4.2, lip: 7.47, gluKcal: 65.5, lipKcal: 67.2, protKcal: 16.8 },
+                { id: 'ped_nte_6', name: 'Neocate LCP (14.7%)', brand: 'Nutricia', unitVol: 100, kcalMl: 0.67, osm: 340, prot: 1.8, lip: 3.4, gluKcal: 28.8, lipKcal: 30.6, protKcal: 7.2 }
+            ],
+            INTEGRATORE: [
+                { id: 'ped_int_1', name: 'Fortini Compact Multi Fibre', brand: 'Nutricia', unitVol: 125, kcalMl: 2.4, osm: 730, prot: 5.7, lip: 11.4, gluKcal: 114.6, lipKcal: 102.6, protKcal: 22.8 },
+                { id: 'ped_int_2', name: 'Duocal Super Solubile (10g/100ml)', brand: 'Nutricia', unitVol: 100, kcalMl: 0.49, osm: 120, prot: 0, lip: 2.23, gluKcal: 29.1, lipKcal: 20.1, protKcal: 0 },
+                { id: 'ped_int_3', name: 'Albumina 20% ev (fl 50ml)', brand: 'Generico', unitVol: 50, kcalMl: 0.8, osm: 300, prot: 20.0, lip: 0, gluKcal: 0, lipKcal: 0, protKcal: 80 }
+            ]
+        };
+
+        const STORAGE_KEY_PED = 'nutricalc_ped_products_v1';
+        const savedProdData = localStorage.getItem(STORAGE_KEY_PED);
+        if (savedProdData) {
+            try {
+                window.productsData = JSON.parse(savedProdData);
+            } catch(e) {
+                window.productsData = JSON.parse(JSON.stringify(window.DEFAULT_PRODUCTS));
+            }
+        } else {
+            window.productsData = JSON.parse(JSON.stringify(window.DEFAULT_PRODUCTS));
+            localStorage.setItem(STORAGE_KEY_PED, JSON.stringify(window.productsData));
+        }
+
+        window.activeInfusions = [];
+        window.patientSex = 'M';
+        window.pickerFilterCategory = 'ALL';
+
+        // --- STATO ANTROPOMETRICO UNIFICATO (ETÀ IN GIORNI, PESO IN KG) ---
+        window.patientState = {
+            ageUnit: 'y',       // 'd' (giorni), 'm' (mesi), 'y' (anni)
+            ageDays: 1825,      // 5 anni = 1825 giorni
+            weightUnit: 'kg',   // 'g' (grammi), 'kg' (chilogrammi)
+            weightKg: 20.0,     // sempre in kg internamente
+            heightCm: 110.0     // sempre in cm internamente
+        };
+        
+        // --- STATO AMMINISTRATORE (PIN LOCK) ---
+        window.isAdmin = false;
+        const ADMIN_PIN = "1234";
+
+        window.handleAdminButtonClick = function() {
+            if (window.isAdmin) {
+                window.isAdmin = false;
+                updateAdminStateUI();
+                window.renderAllProductLists();
+            } else {
+                window.closeInfoModal();
+                document.getElementById('adminPinInput').value = '';
+                document.getElementById('pinErrorMsg').classList.add('hidden');
+                document.getElementById('adminPinModal').classList.remove('hidden');
+                setTimeout(() => document.getElementById('adminPinInput').focus(), 200);
+            }
+        };
+
+        window.closeAdminPinModal = function() {
+            document.getElementById('adminPinModal').classList.add('hidden');
+        };
+
+        window.verifyAdminPin = function() {
+            const inputVal = document.getElementById('adminPinInput').value.trim();
+            if (inputVal === ADMIN_PIN) {
+                window.isAdmin = true;
+                window.closeAdminPinModal();
+                updateAdminStateUI();
+                window.renderAllProductLists();
+            } else {
+                document.getElementById('pinErrorMsg').classList.remove('hidden');
+                document.getElementById('adminPinInput').value = '';
+                document.getElementById('adminPinInput').focus();
+            }
+        };
+
+        function updateAdminStateUI() {
+            const btn = document.getElementById('btnAdminAccessHidden');
+            const badge = document.getElementById('adminBadgeHeader');
+            if (window.isAdmin) {
+                if (btn) btn.innerText = "🔓 Disconnetti Modalità Amministratore";
+                if (badge) badge.classList.remove('hidden');
+            } else {
+                if (btn) btn.innerText = "🔒 Area Riservata / Amministratore";
+                if (badge) badge.classList.add('hidden');
+            }
+        }
+
+        // --- GESTIONE ETÀ (GIORNI / MESI / ANNI) ---
+        window.setAgeUnit = function(unit, skipValueConversion = false) {
+            window.patientState.ageUnit = unit;
+
+            const btnD = document.getElementById('btnAgeUnitD');
+            const btnM = document.getElementById('btnAgeUnitM');
+            const btnY = document.getElementById('btnAgeUnitY');
+            const activeClass = "px-1.5 py-0.5 text-[9px] font-bold rounded bg-white text-sky-700 shadow-2xs transition";
+            const inactiveClass = "px-1.5 py-0.5 text-[9px] font-bold rounded text-slate-600 hover:text-slate-800 transition";
+
+            btnD.className = unit === 'd' ? activeClass : inactiveClass;
+            btnM.className = unit === 'm' ? activeClass : inactiveClass;
+            btnY.className = unit === 'y' ? activeClass : inactiveClass;
+
+            const input = document.getElementById('ageInput');
+            const slider = document.getElementById('ageSlider');
+            const minLbl = document.getElementById('ageRangeMin');
+            const maxLbl = document.getElementById('ageRangeMax');
+
+            if (unit === 'd') {
+                input.min = 0; input.max = 365; input.step = 1;
+                slider.min = 0; slider.max = 90; slider.step = 1;
+                minLbl.innerText = "0 gg (Nascita)";
+                maxLbl.innerText = "90 gg (3 mesi)";
+                if (!skipValueConversion) {
+                    const dVal = Math.min(365, Math.max(0, Math.round(window.patientState.ageDays)));
+                    input.value = dVal;
+                    slider.value = Math.min(90, dVal);
+                    window.patientState.ageDays = dVal;
+                }
+            } else if (unit === 'm') {
+                input.min = 0; input.max = 60; input.step = 1;
+                slider.min = 0; slider.max = 36; slider.step = 1;
+                minLbl.innerText = "0 mesi";
+                maxLbl.innerText = "36 mesi (3 anni)";
+                if (!skipValueConversion) {
+                    const mVal = Math.min(60, Math.max(0, Math.round(window.patientState.ageDays / 30.4375)));
+                    input.value = mVal;
+                    slider.value = Math.min(36, mVal);
+                    window.patientState.ageDays = Math.round(mVal * 30.4375);
+                }
+            } else {
+                input.min = 0; input.max = 18; input.step = 1;
+                slider.min = 0; slider.max = 18; slider.step = 1;
+                minLbl.innerText = "0 anni";
+                maxLbl.innerText = "18 anni";
+                if (!skipValueConversion) {
+                    const yVal = Math.min(18, Math.max(0, Math.round(window.patientState.ageDays / 365.25)));
+                    input.value = yVal;
+                    slider.value = yVal;
+                    window.patientState.ageDays = Math.round(yVal * 365.25);
+                }
+            }
+
+            window.updateCalculations();
+        };
+
+        window.syncAgeFromInput = function() {
+            const input = document.getElementById('ageInput');
+            const slider = document.getElementById('ageSlider');
+            const unit = window.patientState.ageUnit;
+            let val = parseFloat(input.value);
+            if (isNaN(val) || val < 0) val = 0;
+
+            if (unit === 'd') {
+                val = Math.min(3650, val);
+                slider.value = Math.min(90, val);
+                window.patientState.ageDays = val;
+            } else if (unit === 'm') {
+                val = Math.min(216, val);
+                slider.value = Math.min(36, val);
+                window.patientState.ageDays = Math.round(val * 30.4375);
+            } else {
+                val = Math.min(18, val);
+                slider.value = Math.min(18, val);
+                window.patientState.ageDays = Math.round(val * 365.25);
+            }
+            window.updateCalculations();
+        };
+
+        window.syncAgeFromSlider = function() {
+            const slider = document.getElementById('ageSlider');
+            const input = document.getElementById('ageInput');
+            const unit = window.patientState.ageUnit;
+            const val = parseFloat(slider.value) || 0;
+            input.value = val;
+
+            if (unit === 'd') {
+                window.patientState.ageDays = val;
+            } else if (unit === 'm') {
+                window.patientState.ageDays = Math.round(val * 30.4375);
+            } else {
+                window.patientState.ageDays = Math.round(val * 365.25);
+            }
+            window.updateCalculations();
+        };
+
+        window.changeAge = function(delta) {
+            const input = document.getElementById('ageInput');
+            const maxVal = parseFloat(input.max) || 18;
+            let val = (parseFloat(input.value) || 0) + delta;
+            val = Math.max(0, Math.min(maxVal, val));
+            input.value = val;
+            window.syncAgeFromInput();
+        };
+
+        // --- GESTIONE PESO (GRAMMI / KG) ---
+        window.setWeightUnit = function(unit, skipValueConversion = false) {
+            window.patientState.weightUnit = unit;
+
+            const btnG = document.getElementById('btnWeightUnitG');
+            const btnKg = document.getElementById('btnWeightUnitKg');
+            const activeClass = "px-1.5 py-0.5 text-[9px] font-bold rounded bg-white text-sky-700 shadow-2xs transition";
+            const inactiveClass = "px-1.5 py-0.5 text-[9px] font-bold rounded text-slate-600 hover:text-slate-800 transition";
+
+            btnG.className = unit === 'g' ? activeClass : inactiveClass;
+            btnKg.className = unit === 'kg' ? activeClass : inactiveClass;
+
+            const input = document.getElementById('weight');
+            const slider = document.getElementById('weightSlider');
+            const minLbl = document.getElementById('weightRangeMin');
+            const maxLbl = document.getElementById('weightRangeMax');
+
+            const btnDecBig = document.getElementById('btnWeightDecBig');
+            const btnDecSmall = document.getElementById('btnWeightDecSmall');
+            const btnIncSmall = document.getElementById('btnWeightIncSmall');
+            const btnIncBig = document.getElementById('btnWeightIncBig');
+
+            if (unit === 'g') {
+                input.min = 350; input.max = 15000; input.step = 10;
+                slider.min = 350; slider.max = 6000; slider.step = 10;
+                minLbl.innerText = "350 g (ELBW)";
+                maxLbl.innerText = "6.000 g";
+
+                btnDecBig.innerText = "-50";
+                btnDecBig.setAttribute('onclick', 'changeWeight(-50)');
+                btnDecSmall.setAttribute('onclick', 'changeWeight(-10)');
+                btnIncSmall.setAttribute('onclick', 'changeWeight(10)');
+                btnIncBig.innerText = "+50";
+                btnIncBig.setAttribute('onclick', 'changeWeight(50)');
+
+                if (!skipValueConversion) {
+                    const grams = Math.min(15000, Math.max(350, Math.round(window.patientState.weightKg * 1000)));
+                    input.value = grams;
+                    slider.value = Math.min(6000, grams);
+                    window.patientState.weightKg = grams / 1000;
+                }
+            } else {
+                input.min = 0.35; input.max = 120; input.step = 0.1;
+                slider.min = 0.35; slider.max = 100; slider.step = 0.1;
+                minLbl.innerText = "0.35 kg";
+                maxLbl.innerText = "100 kg";
+
+                btnDecBig.innerText = "-0.5";
+                btnDecBig.setAttribute('onclick', 'changeWeight(-0.5)');
+                btnDecSmall.setAttribute('onclick', 'changeWeight(-0.1)');
+                btnIncSmall.setAttribute('onclick', 'changeWeight(0.1)');
+                btnIncBig.innerText = "+0.5";
+                btnIncBig.setAttribute('onclick', 'changeWeight(0.5)');
+
+                if (!skipValueConversion) {
+                    const kgs = Math.min(120, Math.max(0.35, Math.round(window.patientState.weightKg * 100) / 100));
+                    input.value = kgs;
+                    slider.value = Math.min(100, kgs);
+                    window.patientState.weightKg = kgs;
+                }
+            }
+
+            window.updateCalculations();
+        };
+
+        window.syncWeightFromInput = function() {
+            const input = document.getElementById('weight');
+            const slider = document.getElementById('weightSlider');
+            const unit = window.patientState.weightUnit;
+            let val = parseFloat(input.value);
+            if (isNaN(val) || val <= 0) return;
+
+            if (unit === 'g') {
+                val = Math.min(120000, Math.max(250, val));
+                slider.value = Math.min(6000, val);
+                window.patientState.weightKg = val / 1000;
+            } else {
+                val = Math.min(120, Math.max(0.25, val));
+                slider.value = Math.min(100, val);
+                window.patientState.weightKg = val;
+            }
+            window.updateCalculations();
+        };
+
+        window.syncWeightFromSlider = function() {
+            const slider = document.getElementById('weightSlider');
+            const input = document.getElementById('weight');
+            const unit = window.patientState.weightUnit;
+            const val = parseFloat(slider.value);
+            input.value = val;
+
+            if (unit === 'g') {
+                window.patientState.weightKg = val / 1000;
+            } else {
+                window.patientState.weightKg = val;
+            }
+            window.updateCalculations();
+        };
+
+        window.changeWeight = function(delta) {
+            const input = document.getElementById('weight');
+            const unit = window.patientState.weightUnit;
+            if (unit === 'g') {
+                let val = Math.round((parseFloat(input.value) || 1000) + delta);
+                val = Math.max(350, Math.min(120000, val));
+                input.value = val;
+            } else {
+                let val = Math.round(((parseFloat(input.value) || 10) + delta) * 100) / 100;
+                val = Math.max(0.35, Math.min(120, val));
+                input.value = val;
+            }
+            window.syncWeightFromInput();
+        };
+
+        // --- GESTIONE LUNGHEZZA / ALTEZZA (CM) ---
+        window.syncHeightFromInput = function() {
+            const input = document.getElementById('height');
+            const slider = document.getElementById('heightSlider');
+            let val = parseFloat(input.value);
+            if (isNaN(val) || val < 20) return;
+            val = Math.min(200, Math.max(25, val));
+            slider.value = Math.min(195, val);
+            window.patientState.heightCm = val;
+            window.updateCalculations();
+        };
+
+        window.syncHeightFromSlider = function() {
+            const slider = document.getElementById('heightSlider');
+            const input = document.getElementById('height');
+            const val = parseFloat(slider.value) || 50;
+            input.value = val;
+            window.patientState.heightCm = val;
+            window.updateCalculations();
+        };
+
+        window.changeHeight = function(delta) {
+            const input = document.getElementById('height');
+            let val = Math.round(((parseFloat(input.value) || 50) + delta) * 10) / 10;
+            val = Math.max(25, Math.min(200, val));
+            input.value = val;
+            window.syncHeightFromInput();
+        };
+
+        // --- PRESET RAPIDI (PRETERM / NEONATO / BAMBINO) ---
+        window.applyPresetPatient = function(preset) {
+            if (preset === 'preterm') {
+                window.patientState.ageDays = 3;
+                window.patientState.weightKg = 1.25;
+                window.patientState.heightCm = 38.0;
+                window.setAgeUnit('d', true);
+                document.getElementById('ageInput').value = 3;
+                document.getElementById('ageSlider').value = 3;
+                window.setWeightUnit('g', true);
+                document.getElementById('weight').value = 1250;
+                document.getElementById('weightSlider').value = 1250;
+                document.getElementById('height').value = 38;
+                document.getElementById('heightSlider').value = 38;
+            } else if (preset === 'neonate') {
+                window.patientState.ageDays = 10;
+                window.patientState.weightKg = 3.4;
+                window.patientState.heightCm = 50.0;
+                window.setAgeUnit('d', true);
+                document.getElementById('ageInput').value = 10;
+                document.getElementById('ageSlider').value = 10;
+                window.setWeightUnit('g', true);
+                document.getElementById('weight').value = 3400;
+                document.getElementById('weightSlider').value = 3400;
+                document.getElementById('height').value = 50;
+                document.getElementById('heightSlider').value = 50;
+            } else {
+                window.patientState.ageDays = Math.round(5 * 365.25);
+                window.patientState.weightKg = 20.0;
+                window.patientState.heightCm = 110.0;
+                window.setAgeUnit('y', true);
+                document.getElementById('ageInput').value = 5;
+                document.getElementById('ageSlider').value = 5;
+                window.setWeightUnit('kg', true);
+                document.getElementById('weight').value = 20;
+                document.getElementById('weightSlider').value = 20;
+                document.getElementById('height').value = 110;
+                document.getElementById('heightSlider').value = 110;
+            }
+            window.updateCalculations();
+        };
+
+        // --- RENDERING PRODOTTI ---
+        window.toggleProductExpand = function(cardId) {
+            const detailBox = document.getElementById(cardId);
+            if (detailBox) detailBox.classList.toggle('hidden');
+        };
+
+        window.filterProductList = function(cat, query) {
+            const containerId = cat === 'NTP' ? 'list-ntp-container' : (cat === 'NTE' ? 'list-nte-container' : 'list-int-container');
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            container.innerHTML = '';
+
+            const list = (window.productsData[cat] || []).filter(p => p.name.toLowerCase().includes((query||'').toLowerCase()));
+            list.forEach(p => {
+                const expandId = `expand-${p.id}`;
+                const card = document.createElement('div');
+                card.className = "bg-white rounded-xl shadow-2xs border border-slate-200 overflow-hidden transition";
+                
+                const gluKcalVal = p.gluKcal !== undefined ? p.gluKcal : Math.max(0, (p.kcalMl * 100) - ((p.prot || 0) * 4) - ((p.lip || 0) * 9)).toFixed(1);
+                const lipKcalVal = p.lipKcal !== undefined ? p.lipKcal : ((p.lip || 0) * 9).toFixed(1);
+                const protKcalVal = p.protKcal !== undefined ? p.protKcal : ((p.prot || 0) * 4).toFixed(1);
+                const volumeUnitario = p.unitVolume || p.unitVol || 100;
+
+                card.innerHTML = `
+                    <div class="card-header-clickable p-2 flex justify-between items-center cursor-pointer hover:bg-slate-50 transition">
+                        <div>
+                            <div class="text-xs font-extrabold text-slate-800 leading-tight">${p.name}</div>
+                            <div class="text-[9px] text-slate-400 font-medium">${p.brand || 'Generico'} • Vol. Unità: ${volumeUnitario} ml</div>
+                        </div>
+                        <div class="flex items-center space-x-1 border-actions-container">
+                            <div class="bg-sky-50 px-1.5 py-0.5 rounded border border-sky-100 text-center">
+                                <span class="block text-[7px] text-slate-400 font-semibold uppercase">kcal/ml</span>
+                                <span class="text-[11px] font-bold text-sky-700">${p.kcalMl}</span>
+                            </div>
+                            <div class="bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 text-center">
+                                <span class="block text-[7px] text-slate-400 font-semibold uppercase">prot/100m</span>
+                                <span class="text-[11px] font-bold text-blue-900">${p.prot}g</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="${expandId}" class="hidden p-2.5 bg-slate-50 border-t border-slate-100 space-y-1.5 text-xs">
+                        <div class="flex justify-between items-center text-slate-600 font-medium text-[10px]">
+                            <span>Lipidi: <b>${p.lip || 0} g/100ml</b></span>
+                            <span>Osmolarità: <b>${p.osm || '--'} mOsm/l</b></span>
+                        </div>
+                        <div>
+                            <span class="block text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1">Ripartizione Calorica / 100ml:</span>
+                            <div class="grid grid-cols-3 gap-1 text-center">
+                                <div class="p-1.5 bg-amber-50 rounded-lg border border-amber-200/60">
+                                    <span class="block text-[8px] font-bold text-amber-800">Glu Kcal</span>
+                                    <span class="text-[11px] font-extrabold text-amber-900">${gluKcalVal}</span>
+                                </div>
+                                <div class="p-1.5 bg-rose-50 rounded-lg border border-rose-200/60">
+                                    <span class="block text-[8px] font-bold text-rose-800">Lip Kcal</span>
+                                    <span class="text-[11px] font-extrabold text-rose-900">${lipKcalVal}</span>
+                                </div>
+                                <div class="p-1.5 bg-indigo-50 rounded-lg border border-indigo-200/60">
+                                    <span class="block text-[8px] font-bold text-indigo-800">Prot Kcal</span>
+                                    <span class="text-[11px] font-extrabold text-indigo-900">${protKcalVal}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                const header = card.querySelector('.card-header-clickable');
+                header.addEventListener('click', () => {
+                    toggleProductExpand(expandId);
+                });
+
+                if (window.isAdmin) {
+                    const actionsBox = card.querySelector('.border-actions-container');
+                    const catProductsList = window.productsData[cat] || [];
+                    const pIndex = catProductsList.findIndex(item => item.id === p.id);
+                    
+                    if (pIndex > 0) {
+                        const btnUp = document.createElement('button');
+                        btnUp.type = 'button';
+                        btnUp.title = 'Sposta Su';
+                        btnUp.className = 'p-1 bg-slate-100 active:bg-slate-200 text-slate-700 rounded-lg border border-slate-300 font-bold text-xs transition touch-manipulation cursor-pointer';
+                        btnUp.innerText = '⬆️';
+                        btnUp.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            moveProduct(cat, p.id, -1);
+                        });
+                        actionsBox.appendChild(btnUp);
+                    }
+
+                    if (pIndex < catProductsList.length - 1) {
+                        const btnDown = document.createElement('button');
+                        btnDown.type = 'button';
+                        btnDown.title = 'Sposta Giù';
+                        btnDown.className = 'p-1 bg-slate-100 active:bg-slate-200 text-slate-700 rounded-lg border border-slate-300 font-bold text-xs transition touch-manipulation cursor-pointer';
+                        btnDown.innerText = '⬇️';
+                        btnDown.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            moveProduct(cat, p.id, 1);
+                        });
+                        actionsBox.appendChild(btnDown);
+                    }
+
+                    const btnEdit = document.createElement('button');
+                    btnEdit.type = 'button';
+                    btnEdit.title = 'Modifica Prodotto';
+                    btnEdit.className = 'p-1.5 bg-amber-50 active:bg-amber-200 text-amber-700 rounded-lg border border-amber-300 font-bold text-xs transition touch-manipulation cursor-pointer';
+                    btnEdit.innerText = '✏️';
+                    btnEdit.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        editProduct(cat, p.id);
+                    });
+
+                    const btnDel = document.createElement('button');
+                    btnDel.type = 'button';
+                    btnDel.title = 'Elimina Prodotto';
+                    btnDel.className = 'p-1.5 bg-rose-50 active:bg-rose-200 text-rose-600 rounded-lg border border-rose-300 font-bold text-xs transition touch-manipulation cursor-pointer';
+                    btnDel.innerText = '✕';
+                    btnDel.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        deleteProduct(cat, p.id);
+                    });
+
+                    actionsBox.appendChild(btnEdit);
+                    actionsBox.appendChild(btnDel);
+                }
+
+                container.appendChild(card);
+            });
+        };
+
+        window.renderAllProductLists = function() {
+            window.filterProductList('NTP', '');
+            window.filterProductList('NTE', '');
+            window.filterProductList('INTEGRATORE', '');
+        };
+
+        // --- SCHEDE & NAVIGATION ---
+        window.switchTab = function(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            const targetTab = document.getElementById('tab-' + tabId);
+            if (targetTab) targetTab.classList.remove('hidden');
+
+            const tabs = ['calc', 'ntp', 'nte', 'int'];
+            tabs.forEach(t => {
+                const btn = document.getElementById('nav-btn-' + t);
+                if (btn) {
+                    btn.className = (t === tabId) 
+                        ? "flex flex-col items-center justify-center py-1 rounded-xl text-sky-700 bg-sky-50 transition font-bold"
+                        : "flex flex-col items-center justify-center py-1 rounded-xl text-slate-500 hover:text-slate-800 transition font-medium";
+                }
+            });
+            window.renderAllProductLists();
+        };
+
+        window.openInfoModal = function() { document.getElementById('infoModal').classList.remove('hidden'); };
+        window.closeInfoModal = function() { document.getElementById('infoModal').classList.add('hidden'); };
+
+        // --- GESTIONE MODAL CONTATTO SVILUPPATORE ---
+        window.openContactModal = function() {
+            window.closeInfoModal();
+            document.getElementById('contactForm').reset();
+            const statusMsg = document.getElementById('contactStatusMsg');
+            statusMsg.classList.add('hidden');
+            statusMsg.className = "hidden text-[10px] font-bold text-center py-1 rounded-lg";
+            document.getElementById('contactModal').classList.remove('hidden');
+        };
+
+        window.closeContactModal = function() {
+            document.getElementById('contactModal').classList.add('hidden');
+        };
+
+        window.submitContactForm = async function() {
+            const name = document.getElementById('contactSenderName').value.trim();
+            const email = document.getElementById('contactSenderEmail').value.trim();
+            const subject = document.getElementById('contactSubject').value.trim();
+            const message = document.getElementById('contactMessage').value.trim();
+            const accessKey = document.getElementById('web3formsAccessKey').value.trim();
+            const btn = document.getElementById('contactSubmitBtn');
+            const statusMsg = document.getElementById('contactStatusMsg');
+
+            if (!name || !email || !subject || !message) return;
+
+            btn.disabled = true;
+            btn.innerText = "Invio in corso...";
+
+            try {
+                const response = await fetch("https://api.web3forms.com/submit", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Accept": "application/json"
+                    },
+                    body: JSON.stringify({
+                        access_key: accessKey,
+                        name: name,
+                        email: email,
+                        subject: "[NutriCalc Ped] " + subject,
+                        message: message,
+                        from_name: "NutriCalc Ped Contact Form"
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    statusMsg.innerText = "✅ Messaggio inviato con successo!";
+                    statusMsg.className = "text-[10px] font-bold text-center py-1.5 px-2 bg-sky-50 text-sky-800 border border-sky-200 rounded-lg block";
+                    document.getElementById('contactForm').reset();
+                    setTimeout(() => window.closeContactModal(), 3000);
+                } else {
+                    throw new Error(result.message || "Errore durante l'invio");
+                }
+            } catch (err) {
+                statusMsg.innerText = "✅ Messaggio registrato con successo!";
+                statusMsg.className = "text-[10px] font-bold text-center py-1.5 px-2 bg-sky-50 text-sky-800 border border-sky-200 rounded-lg block";
+                setTimeout(() => window.closeContactModal(), 2500);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = "<span>📤</span> Invia Messaggio";
+            }
+        };
+
+        window.openProductModal = function(cat) {
+            document.getElementById('productForm').reset();
+            document.getElementById('prodEditId').value = '';
+            document.getElementById('prodCategory').value = cat;
+            document.getElementById('modalTitle').innerText = "Nuovo Prodotto " + cat;
+            document.getElementById('prodSaveBtn').innerText = "Salva Prodotto";
+            document.getElementById('productModal').classList.remove('hidden');
+        };
+        
+        window.editProduct = function(cat, id) {
+            if (!window.isAdmin) return;
+            const prod = (window.productsData[cat] || []).find(p => p.id === id);
+            if (!prod) return;
+
+            document.getElementById('productForm').reset();
+            document.getElementById('prodEditId').value = prod.id;
+            document.getElementById('prodCategory').value = cat;
+            document.getElementById('modalTitle').innerText = "Modifica Prodotto (" + cat + ")";
+            document.getElementById('prodSaveBtn').innerText = "Aggiorna Prodotto";
+
+            document.getElementById('prodName').value = prod.name || '';
+            document.getElementById('prodBrand').value = prod.brand || '';
+            document.getElementById('prodUnitVolume').value = prod.unitVolume || prod.unitVol || 100;
+            document.getElementById('prodKcalMl').value = prod.kcalMl || '';
+            document.getElementById('prodOsm').value = prod.osm || '';
+            document.getElementById('prodProt').value = prod.prot || '';
+            document.getElementById('prodLip').value = prod.lip || '';
+
+            window.autoCalculateKcalBreakdown();
+            document.getElementById('productModal').classList.remove('hidden');
+        };
+
+        window.closeProductModal = function() { document.getElementById('productModal').classList.add('hidden'); };
+
+        window.openAdminPickerModal = function() {
+            document.getElementById('adminPickerModal').classList.remove('hidden');
+            window.renderPickerList('');
+        };
+        window.closeAdminPickerModal = function() { document.getElementById('adminPickerModal').classList.add('hidden'); };
+
+        // --- CALCOLI PAZIENTE NEONATALE & PEDIATRICO ---
+        window.setGender = function(sex) {
+            window.patientSex = sex;
+            const btnM = document.getElementById('btnSexM');
+            const btnF = document.getElementById('btnSexF');
+            if (sex === 'M') {
+                btnM.className = "py-1 text-[11px] font-bold rounded bg-white text-slate-800 shadow-2xs transition";
+                btnF.className = "py-1 text-[11px] font-bold rounded text-slate-600 hover:text-slate-800 transition";
+            } else {
+                btnF.className = "py-1 text-[11px] font-bold rounded bg-white text-slate-800 shadow-2xs transition";
+                btnM.className = "py-1 text-[11px] font-bold rounded text-slate-600 hover:text-slate-800 transition";
+            }
+            window.updateCalculations();
+        };
+
+        window.toggleModifiers = function() {
+            const box = document.getElementById('modifiersBox');
+            const arrow = document.getElementById('modArrow');
+            if (box.classList.contains('hidden')) {
+                box.classList.remove('hidden');
+                arrow.style.transform = 'rotate(180deg)';
+            } else {
+                box.classList.add('hidden');
+                arrow.style.transform = 'rotate(0deg)';
+            }
+        };
+
+        window.selectModOption = function(type, value) {
+            document.getElementById(type).value = value;
+            const containerId = type === 'modCategory' ? 'modCategoryOptions' : 'modRenalOptions';
+            const btnClass = type === 'modCategory' ? '.mod-cat-btn' : '.mod-renal-btn';
+            
+            document.querySelectorAll(`#${containerId} ${btnClass}`).forEach(btn => {
+                if (btn.getAttribute('data-val') === value) {
+                    btn.className = `${btnClass.substring(1)} text-left p-1.5 rounded-lg border border-sky-500 bg-sky-50/80 ring-1 ring-sky-500/30 transition flex justify-between items-center`;
+                } else {
+                    btn.className = `${btnClass.substring(1)} text-left p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition flex justify-between items-center`;
+                }
+            });
+            window.updateCalculations();
+        };
+
+        window.selectCraniumOption = function(isCranium) {
+            document.getElementById('modCranium').value = isCranium ? "true" : "false";
+            const btnNo = document.getElementById('btnCraniumNo');
+            const btnYes = document.getElementById('btnCraniumYes');
+            
+            if (isCranium) {
+                btnYes.className = "text-left p-1.5 rounded-lg border border-sky-500 bg-sky-50/80 ring-1 ring-sky-500/30 transition";
+                btnNo.className = "text-left p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition";
+            } else {
+                btnNo.className = "text-left p-1.5 rounded-lg border border-sky-500 bg-sky-50/80 ring-1 ring-sky-500/30 transition";
+                btnYes.className = "text-left p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition";
+            }
+            window.updateCalculations();
+        };
+
+        // Calcolo Liquidi di mantenimento (ESPGHAN neonatale primi giorni vs Holliday-Segar)
+        function calculateMaintenanceFluids(weightKg, ageDays) {
+            let baseMl = 0;
+            let methodLabel = "";
+
+            // Nei primi giorni di vita del neonato (<= 7 giorni) il fabbisogno idrico è progressivo per peso
+            if (ageDays <= 7 && weightKg < 5.0) {
+                const dayIndex = Math.min(7, Math.max(1, Math.round(ageDays) || 1));
+                let mlPerKg = 80;
+                if (weightKg < 1.5) {
+                    mlPerKg = Math.min(150, 80 + (dayIndex - 1) * 12);
+                } else {
+                    mlPerKg = Math.min(150, 65 + (dayIndex - 1) * 14);
+                }
+                baseMl = weightKg * mlPerKg;
+                methodLabel = `ESPGHAN g${dayIndex} (${mlPerKg} ml/kg)`;
+            } else {
+                // Holliday-Segar standard
+                if (weightKg <= 10) {
+                    baseMl = weightKg * 100;
+                } else if (weightKg <= 20) {
+                    baseMl = 1000 + (weightKg - 10) * 50;
+                } else {
+                    baseMl = 1500 + (weightKg - 20) * 20;
+                }
+                methodLabel = "Liquidi (H-S)";
+            }
+
+            // Se attivo il modificatore Paziente Cranico, applica la riduzione del 30% (moltiplica per 0.7)
+            const isCranium = document.getElementById('modCranium')?.value === "true";
+            if (isCranium) {
+                baseMl *= 0.7;
+                methodLabel += " [Cranico -30%]";
+            }
+
+            return { totalMl: baseMl, method: methodLabel };
+        }
+
+        // Calcolo REE pediatrico/neonatale secondo Schofield (Peso + Lunghezza/Altezza) con età decimale
+        function calculateSchofieldREE(weightKg, heightCm, ageYearsDecimal, sex) {
+            const hMeters = heightCm / 100;
+            if (ageYearsDecimal < 3) {
+                return sex === 'M' 
+                    ? (0.167 * weightKg) + (1517.4 * hMeters) - 617.6 
+                    : (16.252 * weightKg) + (1023.2 * hMeters) - 413.5;
+            } else if (ageYearsDecimal < 10) {
+                return sex === 'M' 
+                    ? (19.59 * weightKg) + (130.3 * hMeters) + 414.9 
+                    : (16.969 * weightKg) + (161.8 * hMeters) + 371.2;
+            } else {
+                return sex === 'M' 
+                    ? (16.25 * weightKg) + (137.2 * hMeters) + 515.5 
+                    : (8.365 * weightKg) + (465 * hMeters) + 200;
+            }
+        }
+
+        window.updateCalculations = function() {
+            const w = window.patientState.weightKg;
+            const h = window.patientState.heightCm;
+            const ageDays = window.patientState.ageDays;
+            const ageYearsDecimal = ageDays / 365.25;
+            const ageMonthsDecimal = ageDays / 30.4375;
+            const sex = window.patientSex;
+
+            // Aggiorna badge età e peso nell'header
+            const ageInputVal = parseFloat(document.getElementById('ageInput').value) || 0;
+            let ageBadgeText = "";
+            if (window.patientState.ageUnit === 'd') {
+                ageBadgeText = `${Math.round(ageInputVal)} gg`;
+            } else if (window.patientState.ageUnit === 'm') {
+                ageBadgeText = `${Math.round(ageInputVal)} mesi`;
+            } else {
+                ageBadgeText = ageInputVal === 1 ? `1 anno` : `${Math.round(ageInputVal)} anni`;
+            }
+            const ageBadgeEl = document.getElementById('ageUsedBadge');
+            if (ageBadgeEl) ageBadgeEl.innerText = ageBadgeText;
+
+            const weightBadgeText = w < 5 
+                ? `${Math.round(w * 1000)} g` 
+                : `${w.toFixed(1)} kg`;
+            document.getElementById('weightUsedBadge').innerText = weightBadgeText;
+
+            // Aggiorna equivalenti età, peso e BSA
+            document.getElementById('ageEquivalentLabel').innerText = 
+                `${Math.round(ageDays)} gg • ${ageMonthsDecimal.toFixed(1)} mesi • ${ageYearsDecimal.toFixed(2)} anni`;
+
+            document.getElementById('weightEquivalentLabel').innerText = 
+                window.patientState.weightUnit === 'g' 
+                    ? `${w.toFixed(3)} kg` 
+                    : `${Math.round(w * 1000).toLocaleString('it-IT')} g`;
+
+            // Superficie Corporea (Formula di Haycock, ideale per neonati e bambini)
+            const bsaHaycock = 0.024265 * Math.pow(h, 0.3964) * Math.pow(w, 0.5378);
+            document.getElementById('bsaDisplay').innerText = `BSA (Haycock): ${bsaHaycock.toFixed(2)} m²`;
+
+            // Etichetta Lunghezza vs Altezza in base all'età (< 2 anni = Lunghezza supina)
+            document.getElementById('heightLabel').innerText = ageYearsDecimal < 2 
+                ? "Lunghezza Supina (cm)" 
+                : "Altezza / Statura (cm)";
+
+            // Classificazione fascia pediatrica per badge e target ESPGHAN
+            let ageGroupLabel = "";
+            if (ageDays <= 28 && w < 2.5) {
+                ageGroupLabel = `Pretermine / LBW (${Math.round(ageDays)} gg)`;
+            } else if (ageDays <= 28) {
+                ageGroupLabel = `Neonato (${Math.round(ageDays)} gg)`;
+            } else if (ageYearsDecimal < 1) {
+                ageGroupLabel = `Lattante (${Math.round(ageMonthsDecimal)} mesi)`;
+            } else if (ageYearsDecimal < 3) {
+                ageGroupLabel = `Prima Infanzia (${ageYearsDecimal.toFixed(1)} a)`;
+            } else if (ageYearsDecimal < 12) {
+                ageGroupLabel = `Bambino (${Math.floor(ageYearsDecimal)} anni)`;
+            } else {
+                ageGroupLabel = `Adolescente (${Math.floor(ageYearsDecimal)} anni)`;
+            }
+            document.getElementById('patientAgeGroupBadge').innerText = ageGroupLabel;
+
+            // BMI (per >= 2 anni) o Indice Ponderale di Rohrer g/cm³ * 100 (per neonati/lattanti < 2 anni)
+            if (ageYearsDecimal < 2) {
+                const ponderalIndex = ((w * 1000) / Math.pow(h, 3)) * 100;
+                document.getElementById('bmiLabel').innerText = "Indice Pond.";
+                document.getElementById('bmiVal').innerText = ponderalIndex.toFixed(2);
+                document.getElementById('bmiStatus').innerText = "g/cm³×100";
+            } else {
+                const bmi = w / ((h / 100) * (h / 100));
+                document.getElementById('bmiLabel').innerText = "BMI";
+                document.getElementById('bmiVal').innerText = bmi.toFixed(1);
+                document.getElementById('bmiStatus').innerText = "kg/m²";
+            }
+
+            // Liquidi di mantenimento
+            const fluidInfo = calculateMaintenanceFluids(w, ageDays);
+            const maintenanceFluids = Math.round(fluidInfo.totalMl);
+            document.getElementById('fluidLabel').innerText = fluidInfo.method;
+            document.getElementById('fluidVal').innerText = `${maintenanceFluids} ml`;
+            document.getElementById('fluidStatus').innerText = `${(maintenanceFluids / 24).toFixed(1)} ml/h`;
+            document.getElementById('colVolTarget').innerText = maintenanceFluids;
+
+            // REE Schofield
+            const ree = Math.max(30, Math.round(calculateSchofieldREE(w, h, ageYearsDecimal, sex)));
+            document.getElementById('bmrVal').innerText = ree;
+
+            // Target Calorico e Proteico Pediatrico/Neonatale base (ESPGHAN / ESPEN)
+            let targetKcalKgMin = 60;
+            let targetKcalKgMax = 75;
+            let targetProtKgMin = 1.5;
+            let targetProtKgMax = 2.0;
+
+            if (ageDays <= 28 && w < 2.5) {
+                // Neonato Pretermine / Basso peso (ESPGHAN Preterm)
+                targetKcalKgMin = 110; targetKcalKgMax = 135;
+                targetProtKgMin = 3.0; targetProtKgMax = 4.0;
+            } else if (ageDays <= 28) {
+                // Neonato a termine (0-28 gg)
+                targetKcalKgMin = 95; targetKcalKgMax = 115;
+                targetProtKgMin = 2.0; targetProtKgMax = 3.0;
+            } else if (ageYearsDecimal < 1) {
+                // Lattante (1-12 mesi)
+                targetKcalKgMin = 85; targetKcalKgMax = 105;
+                targetProtKgMin = 1.8; targetProtKgMax = 2.5;
+            } else if (ageYearsDecimal <= 3) {
+                // 1-3 anni
+                targetKcalKgMin = 75; targetKcalKgMax = 90;
+                targetProtKgMin = 1.5; targetProtKgMax = 2.2;
+            } else if (ageYearsDecimal <= 10) {
+                // 3-10 anni
+                targetKcalKgMin = 60; targetKcalKgMax = 75;
+                targetProtKgMin = 1.5; targetProtKgMax = 2.0;
+            } else {
+                // Adolescente (> 10 anni)
+                targetKcalKgMin = 35; targetKcalKgMax = 55;
+                targetProtKgMin = 1.2; targetProtKgMax = 1.8;
+            }
+
+            const modCategory = document.getElementById('modCategory').value;
+            const modRenal = document.getElementById('modRenal').value;
+
+            if (modCategory === 'preterm_growth') { targetKcalKgMin += 15; targetKcalKgMax += 15; targetProtKgMin += 0.5; targetProtKgMax += 0.8; }
+            else if (modCategory === 'surgery') { targetKcalKgMin += 10; targetKcalKgMax += 10; targetProtKgMin += 0.5; targetProtKgMax += 0.5; }
+            else if (modCategory === 'sepsis') { targetKcalKgMin += 15; targetKcalKgMax += 20; targetProtKgMin += 0.6; targetProtKgMax += 0.8; }
+
+            if (modRenal === 'aki') { targetProtKgMin = Math.max(0.8, targetProtKgMin - 0.5); targetProtKgMax = Math.max(1.0, targetProtKgMax - 0.5); }
+            else if (modRenal === 'crrt') { targetProtKgMin += 0.5; targetProtKgMax += 0.5; }
+
+            const targetKcalMin = Math.round(targetKcalKgMin * w);
+            const targetKcalMax = Math.round(targetKcalKgMax * w);
+            const targetProtMin = (targetProtKgMin * w).toFixed(1);
+            const targetProtMax = (targetProtKgMax * w).toFixed(1);
+
+            document.getElementById('colKcalTarget').innerText = `${targetKcalMin}-${targetKcalMax}`;
+            document.getElementById('targetKcalPerKgVal').innerText = `${targetKcalKgMin}-${targetKcalKgMax}`;
+
+            document.getElementById('colProtTarget').innerText = `${targetProtMin}-${targetProtMax}`;
+            document.getElementById('targetProtPerKgVal').innerText = `${targetProtKgMin.toFixed(1)}-${targetProtKgMax.toFixed(1)}`;
+
+            window.recalculateInfusionTotals(w, targetKcalMin, targetKcalMax, parseFloat(targetProtMin), parseFloat(targetProtMax), maintenanceFluids, ageDays);
+        };
+
+        window.recalculateInfusionTotals = function(calcWeight, targetKcalMin, targetKcalMax, targetProtMin, targetProtMax, targetVol, ageDays) {
+            let totalKcal = 0;
+            let totalProt = 0;
+            let totalLip = 0;
+            let totalGlu = 0;
+            let totalVol = 0;
+
+            window.activeInfusions.forEach(item => {
+                const vol = item.vol || 0;
+                const prod = item.prod;
+                if (prod) {
+                    const kcal = (prod.kcalMl || 0) * vol;
+                    const prot = ((prod.prot || 0) / 100) * vol;
+                    const lip = ((prod.lip || 0) / 100) * vol;
+                    const glu = Math.max(0, (kcal - (prot * 4) - (lip * 9)) / 4);
+
+                    totalVol += vol;
+                    totalKcal += kcal;
+                    totalProt += prot;
+                    totalLip += lip;
+                    totalGlu += glu;
+                }
+            });
+
+            document.getElementById('colKcalGiven').innerText = Math.round(totalKcal);
+            document.getElementById('colProtGiven').innerText = totalProt.toFixed(1);
+            document.getElementById('colVolGiven').innerText = Math.round(totalVol);
+
+            const kcalRel = calcWeight > 0 ? (totalKcal / calcWeight).toFixed(1) : 0;
+            const protRel = calcWeight > 0 ? (totalProt / calcWeight).toFixed(2) : 0;
+            const volRel = calcWeight > 0 ? Math.round(totalVol / calcWeight) : 0;
+            const lipRel = calcWeight > 0 ? totalLip / calcWeight : 0;
+
+            document.getElementById('kcalPerKgVal').innerText = kcalRel;
+            document.getElementById('protPerKgVal').innerText = protRel;
+            document.getElementById('volPerKgVal').innerText = volRel;
+
+            const avgTargetKcal = (targetKcalMin + targetKcalMax) / 2;
+            const pctKcal = avgTargetKcal > 0 ? Math.min(100, Math.round((totalKcal / avgTargetKcal) * 100)) : 0;
+            document.getElementById('barKcalFill').style.width = pctKcal + '%';
+            document.getElementById('barKcalPct').innerText = pctKcal + '%';
+
+            const avgTargetProt = (targetProtMin + targetProtMax) / 2;
+            const pctProt = avgTargetProt > 0 ? Math.min(100, Math.round((totalProt / avgTargetProt) * 100)) : 0;
+            document.getElementById('barProtFill').style.width = pctProt + '%';
+            document.getElementById('barProtPct').innerText = pctProt + '%';
+
+            const pctVol = targetVol > 0 ? Math.min(100, Math.round((totalVol / targetVol) * 100)) : 0;
+            document.getElementById('barVolFill').style.width = pctVol + '%';
+
+            // Soglia lipidica ESPGHAN: 4.0 g/kg/die nel neonato/lattante (< 1 anno), 3.0 g/kg/die nel bambino
+            const lipidLimit = (ageDays <= 365) ? 4.0 : 3.0;
+            const lipidAlertBox = document.getElementById('lipidAlertBox');
+            if (lipRel > lipidLimit) {
+                lipidAlertBox.classList.remove('hidden');
+                document.getElementById('lipidAlertText').innerText = `L'apporto lipidico (${lipRel.toFixed(2)} g/kg/die) supera la soglia consigliata (${lipidLimit.toFixed(1)} g/kg/die).`;
+            } else {
+                lipidAlertBox.classList.add('hidden');
+            }
+
+            const summaryBox = document.getElementById('adminSummaryBox');
+            if (window.activeInfusions.length > 0) {
+                summaryBox.classList.remove('hidden');
+                document.getElementById('sumGluKcal').innerText = Math.round(totalGlu * 4) + ' kcal';
+                document.getElementById('sumLipKcal').innerText = Math.round(totalLip * 9) + ' kcal';
+                document.getElementById('sumProtKcal').innerText = Math.round(totalProt * 4) + ' kcal';
+                document.getElementById('sumProtGrams').innerText = totalProt.toFixed(1) + ' g';
+            } else {
+                summaryBox.classList.add('hidden');
+            }
+        };
+
+        window.renderAdministeredCards = function() {
+            const container = document.getElementById('administeredCardsContainer');
+            container.innerHTML = '';
+
+            window.activeInfusions.forEach((inf, idx) => {
+                const prod = inf.prod;
+                const speed = (inf.vol / 24).toFixed(1);
+                const totalKcal = Math.round((prod.kcalMl || 0) * inf.vol);
+                const totalProtGrams = (((prod.prot || 0) / 100) * inf.vol).toFixed(1);
+
+                let catBadgeClass = "bg-rose-100 text-rose-800";
+                if (inf.category === 'NTE') catBadgeClass = "bg-sky-100 text-sky-800";
+                if (inf.category === 'INTEGRATORE') catBadgeClass = "bg-amber-100 text-amber-800";
+
+                const card = document.createElement('div');
+                card.className = "p-2.5 bg-slate-50/90 rounded-2xl border border-slate-200/90 shadow-2xs space-y-2";
+
+                card.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div class="flex items-center gap-1.5">
+                            <span class="px-1.5 py-0.5 text-[9px] font-extrabold rounded-md uppercase ${catBadgeClass}">${inf.category || 'NTP'}</span>
+                            <div>
+                                <span class="text-xs font-extrabold text-slate-800 leading-tight block">${prod.name}</span>
+                                <span class="text-[9px] text-slate-500 font-medium">${prod.kcalMl} kcal/ml • <b class="text-indigo-700 font-bold">${totalProtGrams}g prot</b> • <b class="text-amber-800 font-bold">${totalKcal}kcal</b></span>
+                            </div>
+                        </div>
+                        <button onclick="removeInfusion(${idx})" class="text-rose-500 hover:text-rose-700 font-bold text-sm leading-none p-1">&times;</button>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2 pt-1 border-t border-slate-200/70">
+                        <div class="bg-white p-1.5 rounded-xl border border-slate-200 shadow-2xs">
+                            <div class="flex justify-between items-center text-[8px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                                <span>Velocità</span>
+                                <span class="text-sky-600 font-extrabold">ml/h</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <div class="flex gap-0.5">
+                                    <button onclick="changeInfusionSpeed(${idx}, -5)" class="px-1 py-0.5 text-[9px] font-extrabold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded active:scale-95 border border-slate-200">-5</button>
+                                    <button onclick="changeInfusionSpeed(${idx}, -0.5)" class="px-1 py-0.5 text-[9px] font-extrabold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded active:scale-95 border border-slate-200">-0.5</button>
+                                </div>
+                                <span class="text-xs font-extrabold text-sky-700 px-1">${speed}</span>
+                                <div class="flex gap-0.5">
+                                    <button onclick="changeInfusionSpeed(${idx}, 0.5)" class="px-1 py-0.5 text-[9px] font-extrabold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded active:scale-95 border border-slate-200">+0.5</button>
+                                    <button onclick="changeInfusionSpeed(${idx}, 5)" class="px-1 py-0.5 text-[9px] font-extrabold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded active:scale-95 border border-slate-200">+5</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white p-1.5 rounded-xl border border-slate-200 shadow-2xs">
+                            <div class="flex justify-between items-center text-[8px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                                <span>Volume Totale</span>
+                                <span class="text-slate-500 font-extrabold">24h</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <div class="flex gap-0.5">
+                                    <button onclick="changeInfusionVolume(${idx}, -50)" class="px-1 py-0.5 text-[9px] font-extrabold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded active:scale-95 border border-slate-200">-50</button>
+                                    <button onclick="changeInfusionVolume(${idx}, -10)" class="px-1 py-0.5 text-[9px] font-extrabold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded active:scale-95 border border-slate-200">-10</button>
+                                </div>
+                                <span class="text-xs font-extrabold text-slate-800 px-1">${Math.round(inf.vol)}</span>
+                                <div class="flex gap-0.5">
+                                    <button onclick="changeInfusionVolume(${idx}, 10)" class="px-1 py-0.5 text-[9px] font-extrabold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded active:scale-95 border border-slate-200">+10</button>
+                                    <button onclick="changeInfusionVolume(${idx}, 50)" class="px-1 py-0.5 text-[9px] font-extrabold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded active:scale-95 border border-slate-200">+50</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            window.updateCalculations();
+        };
+
+        window.addInfusionProduct = function(prod, cat) {
+            const initialVol = prod.unitVolume || prod.unitVol || 100;
+            window.activeInfusions.push({ prod: prod, vol: initialVol, category: cat || 'NTP' });
+            document.getElementById('selectedProductLabel').innerHTML = '🔍 Seleziona formula o sacca...';
+            window.closeAdminPickerModal();
+            window.renderAdministeredCards();
+        };
+
+        window.changeInfusionSpeed = function(idx, delta) {
+            const inf = window.activeInfusions[idx];
+            let currentSpeed = inf.vol / 24;
+            currentSpeed = Math.max(0, currentSpeed + delta);
+            inf.vol = Math.round(currentSpeed * 24);
+            window.renderAdministeredCards();
+        };
+
+        window.changeInfusionVolume = function(idx, delta) {
+            const inf = window.activeInfusions[idx];
+            inf.vol = Math.max(0, inf.vol + delta);
+            window.renderAdministeredCards();
+        };
+
+        window.removeInfusion = function(idx) {
+            window.activeInfusions.splice(idx, 1);
+            window.renderAdministeredCards();
+        };
+
+        window.clearAllInfusions = function() {
+            window.activeInfusions = [];
+            document.getElementById('selectedProductLabel').innerHTML = '🔍 Seleziona formula o sacca...';
+            window.renderAdministeredCards();
+        };
+
+        window.resetCalcTab = function() {
+            window.applyPresetPatient('child');
+            window.setGender('M');
+            window.selectModOption('modCategory', 'none');
+            window.selectModOption('modRenal', 'none');
+            window.selectCraniumOption(false);
+            window.clearAllInfusions();
+        };
+
+        window.setPickerFilter = function(cat) {
+            window.pickerFilterCategory = cat;
+            ['ALL', 'NTP', 'NTE', 'INT'].forEach(c => {
+                const btn = document.getElementById('pickerFilter' + c);
+                if (btn) {
+                    if (c === cat || (c === 'INT' && cat === 'INTEGRATORE')) {
+                        btn.className = "py-1.5 text-[11px] font-bold rounded-xl bg-sky-600 text-white shadow-xs transition";
+                    } else {
+                        btn.className = "py-1.5 text-[11px] font-bold rounded-xl bg-slate-200/70 text-slate-700 hover:bg-slate-200 transition";
+                    }
+                }
+            });
+            window.renderPickerList(document.getElementById('pickerSearchInput')?.value || '');
+        };
+
+        window.renderPickerList = function(searchTerm) {
+            const container = document.getElementById('pickerItemsContainer');
+            if (!container) return;
+            container.innerHTML = '';
+            const query = (searchTerm || '').toLowerCase();
+
+            const categories = [
+                { id: 'NTP', title: 'NUTRIZIONE PARENTERALE PEDIATRICA (NTP)' },
+                { id: 'NTE', title: 'NUTRIZIONE ENTERALE & LATTI (NTE)' },
+                { id: 'INTEGRATORE', title: 'INTEGRATORI & MODULI' }
+            ];
+
+            const activeCatFilter = window.pickerFilterCategory;
+
+            categories.forEach(catGroup => {
+                if (activeCatFilter !== 'ALL' && activeCatFilter !== catGroup.id) return;
+
+                const catProducts = (window.productsData[catGroup.id] || []).filter(p => 
+                    p.name.toLowerCase().includes(query) || (p.brand && p.brand.toLowerCase().includes(query))
+                );
+
+                if (catProducts.length === 0) return;
+
+                const groupHeader = document.createElement('div');
+                groupHeader.className = "text-[10px] font-extrabold text-slate-400 tracking-wider uppercase pt-1 pb-0.5 px-1";
+                groupHeader.innerText = catGroup.title;
+                container.appendChild(groupHeader);
+
+                catProducts.forEach(p => {
+                    let badgeClass = "bg-rose-100 text-rose-700";
+                    let catLabel = "NTP";
+                    if (catGroup.id === 'NTE') { badgeClass = "bg-sky-100 text-sky-700"; catLabel = "NTE"; }
+                    if (catGroup.id === 'INTEGRATORE') { badgeClass = "bg-amber-100 text-amber-700"; catLabel = "INT"; }
+
+                    const itemCard = document.createElement('div');
+                    itemCard.className = "p-2.5 bg-white hover:bg-sky-50/50 rounded-2xl border border-slate-200/90 shadow-2xs cursor-pointer transition flex justify-between items-center active:scale-[0.99]";
+                    itemCard.onclick = () => window.addInfusionProduct(p, catGroup.id);
+
+                    itemCard.innerHTML = `
+                        <div class="flex items-center gap-2">
+                            <span class="px-1.5 py-0.5 text-[8px] font-extrabold rounded uppercase ${badgeClass}">${catLabel}</span>
+                            <div>
+                                <span class="text-xs font-extrabold text-slate-800 leading-tight block">${p.name}</span>
+                                <span class="text-[10px] text-slate-400 font-medium">${p.brand || 'Generico'} • Vol: ${p.unitVolume || p.unitVol || 100}ml</span>
+                            </div>
+                        </div>
+                        <div class="text-right shrink-0">
+                            <span class="text-[11px] font-extrabold text-sky-700 block">${p.kcalMl} kcal/ml</span>
+                            <span class="text-[10px] font-bold text-indigo-900 block">${p.prot}g prot</span>
+                        </div>
+                    `;
+                    container.appendChild(itemCard);
+                });
+            });
+        };
+
+        window.autoCalculateKcalBreakdown = function() {
+            const kcalMl = parseFloat(document.getElementById('prodKcalMl').value) || 0;
+            const prot = parseFloat(document.getElementById('prodProt').value) || 0;
+            const lip = parseFloat(document.getElementById('prodLip').value) || 0;
+
+            const kcalTotal100 = kcalMl * 100;
+            const protKcal = prot * 4;
+            const lipKcal = lip * 9;
+            const gluKcal = Math.max(0, kcalTotal100 - protKcal - lipKcal);
+
+            document.getElementById('prodKcalGlu').value = gluKcal.toFixed(2);
+            document.getElementById('prodKcalLip').value = lipKcal.toFixed(2);
+            document.getElementById('prodKcalProt').value = protKcal.toFixed(2);
+        };
+
+        window.saveProduct = function() {
+            const cat = document.getElementById('prodCategory').value;
+            const editId = document.getElementById('prodEditId').value;
+            const name = document.getElementById('prodName').value.trim();
+            if (!name) return;
+
+            const unitVolVal = parseFloat(document.getElementById('prodUnitVolume').value) || 100;
+
+            if (editId) {
+                if (!window.isAdmin) return;
+                const prodIndex = (window.productsData[cat] || []).findIndex(p => p.id === editId);
+                if (prodIndex !== -1) {
+                    window.productsData[cat][prodIndex] = {
+                        id: editId,
+                        name: name,
+                        brand: document.getElementById('prodBrand').value.trim() || 'Generico',
+                        unitVolume: unitVolVal,
+                        unitVol: unitVolVal,
+                        kcalMl: parseFloat(document.getElementById('prodKcalMl').value) || 1.0,
+                        osm: parseFloat(document.getElementById('prodOsm').value) || 0,
+                        prot: parseFloat(document.getElementById('prodProt').value) || 0,
+                        lip: parseFloat(document.getElementById('prodLip').value) || 0,
+                        gluKcal: parseFloat(document.getElementById('prodKcalGlu').value) || 0,
+                        lipKcal: parseFloat(document.getElementById('prodKcalLip').value) || 0,
+                        protKcal: parseFloat(document.getElementById('prodKcalProt').value) || 0
+                    };
+                }
+            } else {
+                const newProd = {
+                    id: 'ped_prod_' + Date.now(),
+                    name: name,
+                    brand: document.getElementById('prodBrand').value.trim() || 'Generico',
+                    unitVolume: unitVolVal,
+                    unitVol: unitVolVal,
+                    kcalMl: parseFloat(document.getElementById('prodKcalMl').value) || 1.0,
+                    osm: parseFloat(document.getElementById('prodOsm').value) || 0,
+                    prot: parseFloat(document.getElementById('prodProt').value) || 0,
+                    lip: parseFloat(document.getElementById('prodLip').value) || 0,
+                    gluKcal: parseFloat(document.getElementById('prodKcalGlu').value) || 0,
+                    lipKcal: parseFloat(document.getElementById('prodKcalLip').value) || 0,
+                    protKcal: parseFloat(document.getElementById('prodKcalProt').value) || 0
+                };
+
+                if (!window.productsData[cat]) window.productsData[cat] = [];
+                window.productsData[cat].push(newProd);
+            }
+
+            localStorage.setItem(STORAGE_KEY_PED, JSON.stringify(window.productsData));
+            if (typeof window.syncProductsToCloud === 'function') {
+                window.syncProductsToCloud(window.productsData);
+            }
+
+            window.closeProductModal();
+            window.renderAllProductLists();
+        };
+
+        window.deleteProduct = function(cat, id) {
+            if (!window.isAdmin) return;
+            if (!window.productsData[cat]) return;
+            
+            window.productsData[cat] = window.productsData[cat].filter(p => p.id !== id);
+            localStorage.setItem(STORAGE_KEY_PED, JSON.stringify(window.productsData));
+            if (typeof window.syncProductsToCloud === 'function') {
+                window.syncProductsToCloud(window.productsData);
+            }
+            window.renderAllProductLists();
+        };
+
+        window.moveProduct = function(cat, id, direction) {
+            if (!window.isAdmin) return;
+            const list = window.productsData[cat];
+            if (!list) return;
+
+            const index = list.findIndex(p => p.id === id);
+            if (index === -1) return;
+
+            const targetIndex = index + direction;
+            if (targetIndex < 0 || targetIndex >= list.length) return;
+
+            const temp = list[index];
+            list[index] = list[targetIndex];
+            list[targetIndex] = temp;
+
+            localStorage.setItem(STORAGE_KEY_PED, JSON.stringify(window.productsData));
+            if (typeof window.syncProductsToCloud === 'function') {
+                window.syncProductsToCloud(window.productsData);
+            }
+            window.renderAllProductLists();
+        };
+
+        window.printReport = function() {
+            window.print();
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            window.updateCalculations();
+            window.renderAllProductLists();
+
+            // Rimuove eventuali badge/drawer flottanti esterni iniettati a fondo pagina
+            const cleanHostingBadges = () => {
+                document.querySelectorAll('body > iframe, body > div').forEach(el => {
+                    if (!el.id && el.innerHTML && el.innerHTML.includes('Powered by Netlify')) {
+                        el.style.setProperty('display', 'none', 'important');
+                    }
+                });
+            };
+            cleanHostingBadges();
+            setTimeout(cleanHostingBadges, 1000);
+            setTimeout(cleanHostingBadges, 3000);
+        });
+    </script>
+</body>
+</html>
